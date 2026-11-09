@@ -39,6 +39,20 @@ async function boot() {
   state.counted = new Set(stored.countedOrderIds || []);
   state.baselineReady = Boolean(stored.baselineReady);
   state.pending = Array.isArray(stored.pending) ? stored.pending : [];
+  let promptSeen = false;
+  try {
+    promptSeen = sessionStorage.getItem('llv-start-prompt') === '1';
+  } catch {
+    promptSeen = false;
+  }
+  state.quiet = !state.shift && promptSeen;
+  if (!state.shift && !promptSeen) {
+    try {
+      sessionStorage.setItem('llv-start-prompt', '1');
+    } catch {
+      state.quiet = false;
+    }
+  }
 
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;top:0;left:0;width:0;height:0;overflow:visible;z-index:2147483646;';
@@ -69,7 +83,9 @@ async function boot() {
 
   function paint() {
     root.replaceChildren();
+    if (state.quiet && !state.shift) return;
     if (state.shift) {
+      state.quiet = false;
       paintDock();
       return;
     }
