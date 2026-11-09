@@ -147,7 +147,7 @@ async function createApp(env = process.env) {
       return;
     }
 
-    const url = new URL(req.url, 'http://127.0.0.1');
+    const url = routeTarget(req);
     const pathname = url.pathname;
 
     if (pathname.startsWith('/api/')) {
@@ -344,6 +344,33 @@ async function createApp(env = process.env) {
   });
 
   return { server, store, kind: store.kind };
+}
+
+function routeTarget(req) {
+  let url;
+  try {
+    url = new URL(req.url || '/', 'http://127.0.0.1');
+  } catch {
+    url = new URL('http://127.0.0.1/');
+  }
+  if (url.pathname === '/server.js') {
+    const forwarded = url.searchParams.get('llv_path') || '';
+    if (forwarded.startsWith('/') && !forwarded.startsWith('//') && !forwarded.includes('\\')) {
+      url.searchParams.delete('llv_path');
+      const rest = url.searchParams.toString();
+      const next = rest ? `${forwarded}${forwarded.includes('?') ? '&' : '?'}${rest}` : forwarded;
+      try {
+        url = new URL(next, 'http://127.0.0.1');
+      } catch {
+        url = new URL('http://127.0.0.1/');
+      }
+    }
+  }
+  if (/^\/(health|login|logout|session|dashboard|workers|admins|ext|shifts|sales)(\/|$)/.test(url.pathname)) {
+    url.pathname = `/api${url.pathname}`;
+  }
+  if (url.pathname.length > 1 && url.pathname.endsWith('/')) url.pathname = url.pathname.slice(0, -1);
+  return url;
 }
 
 function safeStartupMessage(error) {

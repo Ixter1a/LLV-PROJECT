@@ -239,9 +239,18 @@ test('the hosting handler serves health without a manual listen', async () => {
   const hosted = http.createServer(handler);
   await new Promise((resolve) => hosted.listen(0, '127.0.0.1', resolve));
   try {
-    const response = await fetch(`http://127.0.0.1:${hosted.address().port}/api/health`);
+    const base = `http://127.0.0.1:${hosted.address().port}`;
+    const response = await fetch(`${base}/api/health`);
     assert.equal(response.status, 200);
     assert.deepEqual(await response.json(), { ok: true });
+    const rewritten = await fetch(`${base}/server.js?llv_path=/api/health`);
+    assert.equal(rewritten.status, 200);
+    const stripped = await fetch(`${base}/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'llv' },
+      body: JSON.stringify({ password: 'nope' }),
+    });
+    assert.equal(stripped.status, 401);
   } finally {
     hosted.close();
     for (const [key, value] of Object.entries(previous)) {
