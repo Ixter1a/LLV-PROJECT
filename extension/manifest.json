@@ -19,9 +19,16 @@
     "128": "icons/icon128.png"
   },
   "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
   "permissions": ["storage"],
   "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
-  "host_permissions": ["https://funpay.com/*", "https://*.funpay.com/*"],
+  "host_permissions": [
+    "https://funpay.com/*",
+    "https://*.funpay.com/*",
+    "https://llv-shifts.apps.grok.bot/*"
+  ],
   "web_accessible_resources": [
     {
       "resources": ["icons/mark.png", "overlay.css"],

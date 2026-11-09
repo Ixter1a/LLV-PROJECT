@@ -92,7 +92,7 @@ async function boot() {
     card.append(el('h2', 'Начать смену'));
     card.append(p('Новые заказы на этой странице уйдут в панель. Старые, которые уже были на экране, не считаются.'));
     if (!state.apiBase || !state.workerToken) {
-      card.append(p('Сначала откройте настройки и впишите адрес панели и личный ключ. Его выдают в панели, он только ваш.'));
+      card.append(p('Нажмите на значок LLV и впишите адрес панели и личный ключ. Ключ выдают в панели, он только ваш.'));
     }
     const error = p('', 'error');
     error.textContent = state.error;
@@ -332,32 +332,32 @@ async function boot() {
     });
   }
 
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || (!changes.apiBase && !changes.workerToken)) return;
+    if (changes.apiBase) state.apiBase = cleanBase(changes.apiBase.newValue);
+    if (changes.workerToken) state.workerToken = String(changes.workerToken.newValue || '');
+    paint();
+  });
+
   async function post(path, body) {
     let response;
     try {
-      response = await fetch(`${state.apiBase}${path}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-LLV-Token': state.workerToken,
-        },
-        body: JSON.stringify(body),
+      response = await chrome.runtime.sendMessage({
+        type: 'llv-post',
+        path,
+        body,
+        apiBase: state.apiBase,
+        token: state.workerToken,
       });
     } catch {
       throw new Error('offline');
     }
-    let payload = {};
-    try {
-      payload = await response.json();
-    } catch {
-      payload = {};
-    }
-    if (!response.ok) {
-      const error = new Error(payload.error || 'server_error');
-      error.code = payload.error || 'server_error';
+    if (!response || !response.ok) {
+      const error = new Error((response && response.error) || 'offline');
+      error.code = (response && response.code) || 'offline';
       throw error;
     }
-    return payload;
+    return response.result;
   }
 
   if (state.shift) {
@@ -372,8 +372,8 @@ async function boot() {
         paint();
         scan();
       })
-      .catch(() => {
-        state.note = 'Нет связи с панелью';
+      .catch((error) => {
+        state.note = message(error);
         paint();
       });
   }
@@ -398,8 +398,8 @@ async function boot() {
           if (ui.money) ui.money.textContent = formatMoney(result.shift.grossRub);
           if (ui.profit) ui.profit.textContent = formatMoney(result.shift.profitRub);
         })
-        .catch(() => {
-          state.error = 'Нет связи с панелью';
+        .catch((error) => {
+          state.error = message(error);
           if (ui.note) ui.note.textContent = state.error;
         });
     }
