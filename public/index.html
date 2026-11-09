@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#050505">
+  <title>LLV · Смены</title>
+  <link rel="icon" href="/favicon.png" type="image/png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <div id="welcome" class="welcome">
+    <div class="welcome-core">
+      <img class="welcome-mark" src="/mark.png" alt="">
+      <p>LLV</p>
+      <h2>Добро пожаловать</h2>
+    </div>
+  </div>
+
+  <section id="gate" class="gate" hidden>
+    <form id="login" class="panel" autocomplete="off">
+      <img class="logo-mark" src="/mark.png" alt="">
+      <p class="eyebrow">Панель смен</p>
+      <h1>Кто сколько сделал</h1>
+      <p class="lede">Расширение на FunPay открывает смену и само присылает новые заказы. Чистыми остаётся 10% оборота.</p>
+      <label for="login-name">Имя входа</label>
+      <input id="login-name" name="name" maxlength="32" placeholder="Можно пустым, если вход один" autocomplete="username">
+      <label for="password">Пароль</label>
+      <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
+      <p id="login-error" class="error" role="alert"></p>
+      <button class="primary" type="submit">Войти</button>
+    </form>
+  </section>
+
+  <section id="desk" class="desk" hidden>
+    <header class="top">
+      <a class="brand" href="/"><img src="/mark.png" alt="">LLV</a>
+      <p class="brand-sub">Смены</p>
+      <div class="top-side">
+        <time id="clock" datetime=""></time>
+        <button id="logout" class="text" type="button">Выйти</button>
+      </div>
+    </header>
+
+    <div class="layout">
+      <aside class="roster-wrap">
+        <div class="aside-head">
+          <p class="eyebrow">Люди</p>
+          <button id="everyone" class="text" type="button" hidden>Вся команда</button>
+        </div>
+        <form id="new-worker" class="issue">
+          <input id="new-worker-name" maxlength="32" placeholder="Новое имя" autocomplete="off">
+          <button class="mini" type="submit">Ключ</button>
+        </form>
+        <p id="issued" class="issued" hidden></p>
+        <div id="roster" class="roster"></div>
+        <form id="new-admin" class="issue">
+          <input id="admin-name" maxlength="32" placeholder="Свой вход" autocomplete="off">
+          <input id="admin-password" type="password" maxlength="128" placeholder="Свой пароль" autocomplete="new-password">
+          <button class="mini" type="submit">Добавить</button>
+        </form>
+      </aside>
+
+      <div class="stage">
+        <div class="stage-head">
+          <div class="range" id="range" role="tablist" aria-label="Период">
+            <button type="button" data-range="today" aria-pressed="true">Сегодня</button>
+            <button type="button" data-range="week" aria-pressed="false">Неделя</button>
+            <button type="button" data-range="month" aria-pressed="false">Месяц</button>
+            <button type="button" data-range="all" aria-pressed="false">Всё время</button>
+          </div>
+          <p id="scope" class="scope">Вся команда · день по Владивостоку</p>
+        </div>
+
+        <div class="hero" aria-live="polite">
+          <div>
+            <span>Штуки</span>
+            <b id="n-qty">0</b>
+          </div>
+          <div class="profit">
+            <span>Чистыми 10%</span>
+            <b id="n-profit">0 ₽</b>
+          </div>
+          <div>
+            <span>Оборот</span>
+            <b id="n-gross">0 ₽</b>
+          </div>
+        </div>
+
+        <section class="block">
+          <p class="eyebrow">На смене</p>
+          <div id="live"></div>
+        </section>
+
+        <section class="block">
+          <p class="eyebrow">Продажи</p>
+          <div id="feed"></div>
+        </section>
+      </div>
+    </div>
+  </section>
+
+  <script src="/app.js"></script>
+</body>
+</html>

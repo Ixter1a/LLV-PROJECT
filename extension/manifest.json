@@ -1,0 +1,45 @@
+{
+  "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqendaD6/CipIoZ65zQHbFqQw1SvC7Y/zmobAwrilSJDqfUU3SJnkkgx8Gog+yQwqWnncu/Rr0kXCSGTYUfjjfnyzaoN/u0Vd1ksrziTDyqvPKv+RXAM1M53xB0Vx34DVeNeOxu3oMwpN0eRLDY5gH2KSuBaXTBsUxLWQpZhYuVKEFzugC9QASnOEno+U8hjT4ojTB03cg24Tt0FsfbAIoQyvzzEQtHBSVAR8gco+P479ZN47bOv6Z3NLA8jiOLb/ES2WxBwLEqwuZKJRzWP3+7pNao5V46KrO2y67y/iB155O3ERTQORQG9T2RojTUagfrkutctOhvswG1fhJCq+hwIDAQAB",
+  "name": "LLV Смена",
+  "version": "1.0.0",
+  "description": "Кнопка «Начать смену» на FunPay и передача новых продаж в панель LLV.",
+  "action": {
+    "default_title": "LLV Смена",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options.html",
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage"],
+  "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
+  "host_permissions": [
+    "https://funpay.com/*",
+    "https://*.funpay.com/*",
+    "https://llv-shifts.apps.grok.bot/*"
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/mark.png", "overlay.css"],
+      "matches": ["https://funpay.com/*", "https://*.funpay.com/*"]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://funpay.com/*", "https://*.funpay.com/*"],
+      "js": ["parse.js", "content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}

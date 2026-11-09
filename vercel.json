@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "server.js": {
+      "includeFiles": "{public,migrations}/**"
+    }
+  },
+  "rewrites": [
+    { "source": "/:path*", "destination": "/server.js?llv_path=/:path*" }
+  ]
+}
