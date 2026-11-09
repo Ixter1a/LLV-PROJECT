@@ -1,0 +1,19 @@
+{
+  "name": "llv-shifts",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Панель смен LLV: продажи FunPay и чистая доля 10%.",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "linkedom": "^0.18.12"
+  }
+}
