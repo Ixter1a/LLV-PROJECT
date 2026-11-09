@@ -21,6 +21,12 @@
   "permissions": ["storage"],
   "optional_host_permissions": ["https://*/*", "http://localhost/*", "http://127.0.0.1/*"],
   "host_permissions": ["https://funpay.com/*", "https://*.funpay.com/*"],
+  "web_accessible_resources": [
+    {
+      "resources": ["icons/mark.png", "overlay.css"],
+      "matches": ["https://funpay.com/*", "https://*.funpay.com/*"]
+    }
+  ],
   "content_scripts": [
     {
       "matches": ["https://funpay.com/*", "https://*.funpay.com/*"],

@@ -312,9 +312,30 @@ setInterval(() => {
   if (!desk.hidden && !document.hidden) refresh();
 }, 15000);
 
-api('/api/session')
-  .then(() => {
+const welcome = document.querySelector('#welcome');
+const welcomeDone = new Promise((resolve) => {
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (reduce) {
+    welcome.hidden = true;
+    resolve();
+    return;
+  }
+  setTimeout(() => {
+    welcome.classList.add('is-out');
+    setTimeout(() => {
+      welcome.hidden = true;
+      resolve();
+    }, 700);
+  }, 1800);
+});
+
+const sessionReady = api('/api/session').then(() => 'desk').catch(() => 'gate');
+
+Promise.all([welcomeDone, sessionReady]).then(([, mode]) => {
+  if (mode === 'desk') {
     showDesk();
-    return refresh();
-  })
-  .catch(() => showGate());
+    refresh();
+    return;
+  }
+  showGate();
+});

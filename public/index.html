@@ -6,21 +6,24 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="theme-color" content="#050505">
   <title>LLV · Смены</title>
-  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="/favicon.png" type="image/png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500&family=Syne:wght@600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
-  <div class="frame" aria-hidden="true"></div>
+  <div id="welcome" class="welcome">
+    <div class="welcome-core">
+      <img class="welcome-mark" src="/mark.png" alt="">
+      <p>LLV</p>
+      <h2>Добро пожаловать</h2>
+    </div>
+  </div>
 
   <section id="gate" class="gate" hidden>
-    <div class="mark">
-      <p class="eyebrow">Новая эра · 2026</p>
-      <strong>LLV</strong>
-    </div>
     <form id="login" class="panel" autocomplete="off">
+      <img class="logo-mark" src="/mark.png" alt="">
       <p class="eyebrow">Панель смен</p>
       <h1>Кто сколько сделал</h1>
       <p class="lede">Расширение на FunPay открывает смену и само присылает новые заказы. Чистыми остаётся 10% оборота.</p>
@@ -33,7 +36,7 @@
 
   <section id="desk" class="desk" hidden>
     <header class="top">
-      <a class="brand" href="/">LLV</a>
+      <a class="brand" href="/"><img src="/mark.png" alt="">LLV</a>
       <p class="brand-sub">Смены</p>
       <div class="top-side">
         <time id="clock" datetime=""></time>

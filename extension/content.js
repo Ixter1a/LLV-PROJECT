@@ -74,7 +74,8 @@ async function boot() {
       return;
     }
     if (state.collapsed) {
-      const orb = button('LLV', 'orb');
+      const orb = button('', 'orb');
+      orb.append(mark('orb-mark'));
       orb.addEventListener('click', () => {
         state.collapsed = false;
         paint();
@@ -86,6 +87,7 @@ async function boot() {
     dim.className = 'dim';
     const card = document.createElement('section');
     card.className = 'card';
+    card.append(mark());
     card.append(p('LLV · FunPay', 'eyebrow'));
     card.append(el('h2', 'Начать смену'));
     card.append(p('Новые заказы на этой странице уйдут в панель. Старые, которые уже были на экране, не считаются.'));
@@ -126,8 +128,6 @@ async function boot() {
   function paintDock() {
     const dock = document.createElement('section');
     dock.className = 'dock';
-    const dot = document.createElement('i');
-    dot.className = 'dot';
     const who = stat(state.shift.workerName, duration(state.shift.startedAt));
     const totals = state.totals || { qty: 0, grossRub: 0, profitRub: 0 };
     ui.qty = stat(`${totals.qty} шт`, 'штуки').querySelector('b');
@@ -143,7 +143,7 @@ async function boot() {
       state.manualOpen = !state.manualOpen;
       paint();
     });
-    dock.append(dot, who, qty, gross, profit, add, end);
+    dock.append(mark('dock-mark'), who, qty, gross, profit, add, end);
     root.append(dock);
     const note = p(state.note || state.error, 'error');
     note.style.cssText = 'position:absolute;left:50%;bottom:78px;transform:translateX(-50%);pointer-events:none;text-align:center;';
@@ -463,6 +463,14 @@ function p(text, className) {
   const node = el('p', text);
   if (className) node.className = className;
   return node;
+}
+
+function mark(className) {
+  const img = document.createElement('img');
+  img.className = className || 'mark';
+  img.alt = '';
+  img.src = chrome.runtime.getURL('icons/mark.png');
+  return img;
 }
 
 function button(text, className) {
