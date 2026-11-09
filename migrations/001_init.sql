@@ -39,6 +39,27 @@ CREATE INDEX IF NOT EXISTS sales_shift_idx ON sales (shift_id);
 
 CREATE TABLE IF NOT EXISTS sessions (
   id TEXT PRIMARY KEY,
+  admin_id UUID,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   expires_at TIMESTAMPTZ NOT NULL
 );
+
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS admin_id UUID;
+
+CREATE TABLE IF NOT EXISTS admins (
+  id UUID PRIMARY KEY,
+  name TEXT NOT NULL,
+  name_key TEXT NOT NULL UNIQUE,
+  password_hash TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS worker_tokens (
+  id UUID PRIMARY KEY,
+  worker_id UUID NOT NULL REFERENCES workers(id),
+  token_hash TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  revoked_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS worker_tokens_worker_idx ON worker_tokens (worker_id);

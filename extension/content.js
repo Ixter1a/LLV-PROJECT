@@ -6,7 +6,7 @@ if (!document.documentElement.dataset.llvShift) {
 async function boot() {
   const state = {
     apiBase: '',
-    extensionKey: '',
+    workerToken: '',
     workerName: '',
     shift: null,
     seen: new Set(),
@@ -23,7 +23,7 @@ async function boot() {
 
   const stored = await chrome.storage.local.get([
     'apiBase',
-    'extensionKey',
+    'workerToken',
     'workerName',
     'shift',
     'seenOrderIds',
@@ -32,7 +32,7 @@ async function boot() {
     'pending',
   ]);
   state.apiBase = cleanBase(stored.apiBase);
-  state.extensionKey = String(stored.extensionKey || '');
+  state.workerToken = String(stored.workerToken || '');
   state.workerName = String(stored.workerName || '');
   state.shift = stored.shift || null;
   state.seen = new Set(stored.seenOrderIds || []);
@@ -91,21 +91,9 @@ async function boot() {
     card.append(p('LLV · FunPay', 'eyebrow'));
     card.append(el('h2', 'Начать смену'));
     card.append(p('Новые заказы на этой странице уйдут в панель. Старые, которые уже были на экране, не считаются.'));
-    if (!state.apiBase || !state.extensionKey) {
-      card.append(p('Сначала откройте настройки расширения и впишите адрес панели и ключ.'));
+    if (!state.apiBase || !state.workerToken) {
+      card.append(p('Сначала откройте настройки и впишите адрес панели и личный ключ. Его выдают в панели, он только ваш.'));
     }
-    const label = document.createElement('label');
-    label.textContent = 'Имя';
-    const input = document.createElement('input');
-    input.maxLength = 32;
-    input.value = state.workerName;
-    input.placeholder = 'Как вас видеть в панели';
-    input.addEventListener('input', () => {
-      state.workerName = input.value;
-    });
-    ui.name = input;
-    label.append(input);
-    card.append(label);
     const error = p('', 'error');
     error.textContent = state.error;
     ui.error = error;
@@ -113,7 +101,7 @@ async function boot() {
     const actions = document.createElement('div');
     actions.className = 'actions';
     const go = button('Начать\nсмену', 'go');
-    go.disabled = !state.apiBase || !state.extensionKey;
+    go.disabled = !state.apiBase || !state.workerToken;
     go.addEventListener('click', () => start(go));
     const later = button('Не сейчас', 'link');
     later.addEventListener('click', () => {
@@ -209,27 +197,21 @@ async function boot() {
   paint();
 
   async function start(go) {
-    const name = state.workerName.replace(/\s+/g, ' ').trim();
-    if (name.length < 2) {
-      state.error = 'Впишите имя, от 2 символов';
-      paint();
-      return;
-    }
     go.disabled = true;
     state.error = '';
     try {
-      const result = await post('/api/ext/shift/start', { workerName: name });
+      const result = await post('/api/ext/shift/start', {});
       const same = state.shift && state.shift.id === result.shift.id;
       state.shift = result.shift;
       state.totals = result.shift;
-      state.workerName = name;
+      state.workerName = result.shift.workerName || '';
       if (!same && !result.resumed) {
         state.seen = new Set();
         state.counted = new Set();
         state.baselineReady = false;
         state.pending = [];
       }
-      await chrome.storage.local.set({ workerName: name });
+      await chrome.storage.local.set({ workerName: state.workerName });
       await persist();
       paint();
       scan();
@@ -357,7 +339,7 @@ async function boot() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'X-LLV-Key': state.extensionKey,
+          'X-LLV-Token': state.workerToken,
         },
         body: JSON.stringify(body),
       });
@@ -436,8 +418,7 @@ function cleanBase(value) {
 }
 
 function message(error) {
-  if (error.code === 'unauthorized') return 'Ключ расширения не подошёл';
-  if (error.code === 'extension_key_unconfigured') return 'На сервере не задан ключ расширения';
+  if (error.code === 'unauthorized' || error.code === 'forbidden') return 'Личный ключ не подошёл. Попросите новый в панели.';
   if (error.message === 'offline') return 'Нет связи с панелью';
   return 'Не получилось отправить смену';
 }

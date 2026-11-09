@@ -49,11 +49,10 @@
     <img src="icons/mark.png" alt="">
     <p class="eyebrow">LLV · расширение</p>
     <h1>Настройки</h1>
-    <p>Адрес панели и ключ выдаёт тот, кто открывает сайт. Имя увидят в списке смен.</p>
+    <p>Адрес панели и личный ключ выдают в панели. Ключ привязан к одному имени и не открывает чужие смены.</p>
     <form id="form">
-      <label>Адрес панели<input id="apiBase" type="url" placeholder="https://example.com" required></label>
-      <label>Ключ расширения<input id="extensionKey" type="password" autocomplete="off" required></label>
-      <label>Имя<input id="workerName" maxlength="32" placeholder="Аня" required></label>
+      <label>Адрес панели<input id="apiBase" type="url" placeholder="https://llv-shifts.apps.grok.bot" required></label>
+      <label>Личный ключ<input id="workerToken" type="password" autocomplete="off" required></label>
       <p id="status"></p>
       <button type="submit">Сохранить</button>
     </form>

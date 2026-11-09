@@ -1,13 +1,11 @@
 const form = document.querySelector('#form');
 const status = document.querySelector('#status');
 const apiBase = document.querySelector('#apiBase');
-const extensionKey = document.querySelector('#extensionKey');
-const workerName = document.querySelector('#workerName');
+const workerToken = document.querySelector('#workerToken');
 
-chrome.storage.local.get(['apiBase', 'extensionKey', 'workerName']).then((stored) => {
+chrome.storage.local.get(['apiBase', 'workerToken']).then((stored) => {
   apiBase.value = stored.apiBase || '';
-  extensionKey.value = stored.extensionKey || '';
-  workerName.value = stored.workerName || '';
+  workerToken.value = stored.workerToken || '';
 });
 
 form.addEventListener('submit', async (event) => {
@@ -26,20 +24,20 @@ form.addEventListener('submit', async (event) => {
     status.textContent = error.message || 'Проверьте адрес';
     return;
   }
+  const token = workerToken.value.trim();
+  if (!/^llv_[A-Za-z0-9_-]{40,80}$/.test(token)) {
+    status.textContent = 'Ключ начинается с llv_ и копируется из панели целиком';
+    return;
+  }
   const granted = await chrome.permissions.request({ origins: [`${origin}/*`] });
   if (!granted) {
     status.textContent = 'Без доступа к этому адресу смена не отправится';
     return;
   }
-  const name = workerName.value.replace(/\s+/g, ' ').trim();
-  if (name.length < 2) {
-    status.textContent = 'Имя — от 2 символов';
-    return;
-  }
   await chrome.storage.local.set({
     apiBase: origin,
-    extensionKey: extensionKey.value,
-    workerName: name,
+    workerToken: token,
   });
+  await chrome.storage.local.remove(['extensionKey']);
   status.textContent = 'Сохранено';
 });

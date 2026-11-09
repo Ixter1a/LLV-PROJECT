@@ -8,14 +8,13 @@ const test = require('node:test');
 const { createApp } = require('../server');
 
 const password = crypto.randomBytes(18).toString('hex');
-const extensionKey = crypto.randomBytes(18).toString('hex');
+const { EXTENSION_ORIGIN } = require('../lib/secrets');
 
 async function start() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'llv-'));
   const { server } = await createApp({
     DATA_FILE: path.join(dir, 'store.json'),
     SITE_PASSWORD: password,
-    EXTENSION_KEY: extensionKey,
   });
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   const base = `http://127.0.0.1:${server.address().port}`;
@@ -44,12 +43,22 @@ function raw(port, urlPath) {
   });
 }
 
-function ext(base, pathname, body) {
+function ext(base, token, pathname, body) {
   return fetch(`${base}${pathname}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'X-LLV-Key': extensionKey },
+    headers: { 'Content-Type': 'application/json', 'X-LLV-Token': token },
     body: JSON.stringify(body),
   });
+}
+
+async function issue(base, cookie, name) {
+  const response = await fetch(`${base}/api/workers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'llv', Cookie: cookie },
+    body: JSON.stringify({ name }),
+  });
+  assert.equal(response.status, 200);
+  return response.json();
 }
 
 test('password, sales, refunds and 10 percent profit', async () => {
@@ -71,21 +80,31 @@ test('password, sales, refunds and 10 percent profit', async () => {
     const noKey = await fetch(`${base}/api/ext/shift/start`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ workerName: 'Аня' }),
+      body: JSON.stringify({}),
     });
     assert.equal(noKey.status, 401);
 
-    const started = await ext(base, '/api/ext/shift/start', { workerName: 'Аня' });
+    const shared = await fetch(`${base}/api/ext/shift/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-LLV-Key': password },
+      body: JSON.stringify({ workerName: 'Аня' }),
+    });
+    assert.equal(shared.status, 401);
+
+    const anya = await issue(base, cookie, 'Аня');
+    assert.match(anya.token, /^llv_/);
+    const started = await ext(base, anya.token, '/api/ext/shift/start', { workerName: 'Чужой' });
     assert.equal(started.status, 200);
     const first = await started.json();
     assert.equal(first.resumed, false);
+    assert.equal(first.shift.workerName, 'Аня');
 
-    const again = await ext(base, '/api/ext/shift/start', { workerName: 'аня' });
+    const again = await ext(base, anya.token, '/api/ext/shift/start', {});
     const resumed = await again.json();
     assert.equal(resumed.resumed, true);
     assert.equal(resumed.shift.id, first.shift.id);
 
-    const sold = await ext(base, '/api/ext/sales', {
+    const sold = await ext(base, anya.token, '/api/ext/sales', {
       shiftId: first.shift.id,
       sales: [
         { orderId: 'ORDER1001', title: '3 шт алмазов', qty: 3, amountRub: 250, status: 'completed', source: 'funpay' },
@@ -99,7 +118,7 @@ test('password, sales, refunds and 10 percent profit', async () => {
     assert.equal(soldBody.shift.grossRub, 449.99);
     assert.equal(soldBody.shift.profitRub, 45);
 
-    const duplicate = await ext(base, '/api/ext/sales', {
+    const duplicate = await ext(base, anya.token, '/api/ext/sales', {
       shiftId: first.shift.id,
       sales: [{ orderId: 'ORDER1001', title: '3 шт алмазов', qty: 3, amountRub: 250, status: 'completed', source: 'funpay' }],
     });
@@ -112,8 +131,10 @@ test('password, sales, refunds and 10 percent profit', async () => {
     assert.equal(dashboard.totals.profitRub, 45);
     assert.equal(dashboard.workers[0].name, 'Аня');
     assert.equal(dashboard.timezone, 'Asia/Vladivostok');
+    assert.equal(JSON.stringify(dashboard).includes(anya.token), false);
+    assert.equal(JSON.stringify(dashboard).includes('tokenHash'), false);
 
-    const refund = await ext(base, '/api/ext/sales', {
+    const refund = await ext(base, anya.token, '/api/ext/sales', {
       shiftId: first.shift.id,
       sales: [{ orderId: 'ORDER1001', title: 'возврат', qty: 3, amountRub: 250, status: 'refunded', source: 'funpay' }],
     });
@@ -125,7 +146,7 @@ test('password, sales, refunds and 10 percent profit', async () => {
     assert.equal(afterBody.totals.profitRub, 20);
     assert.equal(afterBody.totals.qty, 1);
 
-    const manual = await ext(base, '/api/ext/sales', {
+    const manual = await ext(base, anya.token, '/api/ext/sales', {
       shiftId: first.shift.id,
       sales: [{ orderId: 'manual-aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', title: '<b>руками</b>', qty: 2, amountRub: 50, status: 'completed', source: 'manual' }],
     });
@@ -142,20 +163,93 @@ test('password, sales, refunds and 10 percent profit', async () => {
   }
 });
 
-test('rejects a bad worker name and a closed shift', async () => {
+test('a personal key cannot touch another worker, and a closed shift rejects sales', async () => {
   const { server, base } = await start();
   try {
-    const bad = await ext(base, '/api/ext/shift/start', { workerName: '<script>' });
+    const cookie = await login(base);
+    const headers = { 'Content-Type': 'application/json', 'X-Requested-With': 'llv', Cookie: cookie };
+    const bad = await fetch(`${base}/api/workers`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: '<script>' }),
+    });
     assert.equal(bad.status, 400);
-    const started = await ext(base, '/api/ext/shift/start', { workerName: 'Борис' });
+
+    const boris = await issue(base, cookie, 'Борис');
+    const mark = await issue(base, cookie, 'Марк');
+    const started = await ext(base, boris.token, '/api/ext/shift/start', {});
     const shift = (await started.json()).shift;
-    const ended = await ext(base, '/api/ext/shift/end', { shiftId: shift.id });
+    const stolen = await ext(base, mark.token, '/api/ext/sales', {
+      shiftId: shift.id,
+      sales: [{ orderId: 'STOLENORDER1', title: 'чужое', qty: 1, amountRub: 10, status: 'completed', source: 'funpay' }],
+    });
+    assert.equal(stolen.status, 403);
+    const endedByOther = await ext(base, mark.token, '/api/ext/shift/end', { shiftId: shift.id });
+    assert.equal(endedByOther.status, 403);
+
+    const ended = await ext(base, boris.token, '/api/ext/shift/end', { shiftId: shift.id });
     assert.equal(ended.status, 200);
-    const late = await ext(base, '/api/ext/sales', {
+    const late = await ext(base, boris.token, '/api/ext/sales', {
       shiftId: shift.id,
       sales: [{ orderId: 'LATEORDER1', title: 'поздно', qty: 1, amountRub: 10, status: 'completed', source: 'funpay' }],
     });
     assert.equal(late.status, 404);
+
+    const rotated = await fetch(`${base}/api/workers/${boris.worker.id}/token`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({}),
+    });
+    const fresh = await rotated.json();
+    assert.equal(rotated.status, 200);
+    const oldToken = await ext(base, boris.token, '/api/ext/shift/start', {});
+    assert.equal(oldToken.status, 401);
+    const next = await ext(base, fresh.token, '/api/ext/shift/start', {});
+    assert.equal(next.status, 200);
+
+    const admin = await fetch(`${base}/api/admins`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ name: 'Катя', password: 'otdelny-parol' }),
+    });
+    assert.equal(admin.status, 200);
+    const named = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'llv' },
+      body: JSON.stringify({ name: 'Катя', password: 'otdelny-parol' }),
+    });
+    assert.equal(named.status, 200);
+  } finally {
+    server.close();
+  }
+});
+
+test('login slows down and only the shipped extension origin is allowed', async () => {
+  const { server, base } = await start();
+  try {
+    for (let i = 0; i < 5; i += 1) {
+      const wrong = await fetch(`${base}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'llv' },
+        body: JSON.stringify({ password: 'nope' }),
+      });
+      assert.equal(wrong.status, 401);
+    }
+    const blocked = await fetch(`${base}/api/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'llv' },
+      body: JSON.stringify({ password }),
+    });
+    assert.equal(blocked.status, 429);
+
+    const pinned = await fetch(`${base}/api/health`, { headers: { Origin: EXTENSION_ORIGIN } });
+    assert.equal(pinned.headers.get('access-control-allow-origin'), EXTENSION_ORIGIN);
+    const other = await fetch(`${base}/api/health`, {
+      headers: { Origin: 'chrome-extension://aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' },
+    });
+    assert.equal(other.headers.get('access-control-allow-origin'), null);
+    const funpay = await fetch(`${base}/api/health`, { headers: { Origin: 'https://funpay.com' } });
+    assert.equal(funpay.headers.get('access-control-allow-origin'), null);
   } finally {
     server.close();
   }

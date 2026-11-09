@@ -155,23 +155,30 @@ function render() {
 
   roster.replaceChildren();
   if (!data.workers.length) {
-    roster.append(h('p', { class: 'empty' }, ['Имён ещё нет. Они появятся, когда кто-то начнёт смену.']));
+    roster.append(h('p', { class: 'empty' }, ['Имён ещё нет. Выдайте человеку личный ключ — расширение начнёт смену только с ним.']));
   }
   data.workers.forEach((worker) => {
     const on = worker.openShift && !worker.openShift.endedAt;
-    const button = h('button', {
-      type: 'button',
-      class: `person${on ? ' is-on' : ''}${worker.id === view.worker ? ' is-selected' : ''}`,
-      onclick: () => {
-        view.worker = view.worker === worker.id ? '' : worker.id;
-        refresh();
-      },
-    }, [
-      h('strong', {}, [on ? h('i', { class: `dot${fresh(worker.openShift.lastSeenAt) ? '' : ' is-stale'}` }) : '', worker.name]),
-      h('em', {}, [money(worker.profitRub)]),
-      h('small', {}, [`${worker.qty} шт · оборот ${money(worker.grossRub)} · ${worker.orders} зак.`]),
+    const row = h('div', { class: 'person-row' }, [
+      h('button', {
+        type: 'button',
+        class: `person${on ? ' is-on' : ''}${worker.id === view.worker ? ' is-selected' : ''}`,
+        onclick: () => {
+          view.worker = view.worker === worker.id ? '' : worker.id;
+          refresh();
+        },
+      }, [
+        h('strong', {}, [on ? h('i', { class: `dot${fresh(worker.openShift.lastSeenAt) ? '' : ' is-stale'}` }) : '', worker.name]),
+        h('em', {}, [money(worker.profitRub)]),
+        h('small', {}, [`${worker.qty} шт · оборот ${money(worker.grossRub)} · ${worker.orders} зак.`]),
+      ]),
+      h('button', {
+        type: 'button',
+        class: 'mini',
+        onclick: (event) => arm(event.currentTarget, 'Ключ', () => rotateKey(worker.id)),
+      }, ['Ключ']),
     ]);
-    roster.append(button);
+    roster.append(row);
   });
 
   const shifts = person ? data.openShifts.filter((shift) => shift.workerId === person.id) : data.openShifts;
@@ -270,7 +277,11 @@ loginForm.addEventListener('submit', async (event) => {
   const button = loginForm.querySelector('button');
   button.disabled = true;
   try {
-    await api('/api/login', { password: document.querySelector('#password').value });
+    const name = document.querySelector('#login-name').value.trim();
+    await api('/api/login', {
+      password: document.querySelector('#password').value,
+      ...(name ? { name } : {}),
+    });
     document.querySelector('#password').value = '';
     showDesk();
     await refresh();
@@ -290,6 +301,62 @@ document.querySelector('#logout').addEventListener('click', async () => {
   view.worker = '';
   showGate();
 });
+
+function showToken(result) {
+  const issued = document.querySelector('#issued');
+  issued.hidden = false;
+  const code = document.createElement('code');
+  code.textContent = result.token;
+  const copy = h('button', {
+    type: 'button',
+    class: 'text',
+    onclick: () => navigator.clipboard.writeText(result.token).then(() => {
+      copy.textContent = 'Скопировано';
+    }),
+  }, ['Копировать']);
+  issued.replaceChildren(
+    document.createTextNode(`${result.worker.name}. Ключ показывается один раз: `),
+    code,
+    ' ',
+    copy,
+  );
+}
+
+document.querySelector('#new-worker').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const input = document.querySelector('#new-worker-name');
+  const issued = document.querySelector('#issued');
+  try {
+    const result = await api('/api/workers', { name: input.value });
+    input.value = '';
+    showToken(result);
+    await refresh();
+  } catch (error) {
+    issued.hidden = false;
+    issued.textContent = error.code === 'name_taken' ? 'Такое имя уже есть. Нажмите «Ключ» у человека.' : 'Не получилось выдать ключ';
+  }
+});
+
+document.querySelector('#new-admin').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const issued = document.querySelector('#issued');
+  const name = document.querySelector('#admin-name').value;
+  const password = document.querySelector('#admin-password').value;
+  try {
+    await api('/api/admins', { name, password });
+    document.querySelector('#admin-name').value = '';
+    document.querySelector('#admin-password').value = '';
+    issued.hidden = false;
+    issued.textContent = 'Отдельный вход добавлен. Пароль панели ему не нужен.';
+  } catch (error) {
+    issued.hidden = false;
+    issued.textContent = error.code === 'name_taken' ? 'Такое имя входа уже есть' : 'Пароль от 10 символов, имя как у человека';
+  }
+});
+
+async function rotateKey(workerId) {
+  showToken(await api(`/api/workers/${workerId}/token`, {}));
+}
 
 everyone.addEventListener('click', () => {
   view.worker = '';

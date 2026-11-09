@@ -1,8 +1,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const crypto = require('crypto');
 const { createAppStore } = require('./lib/store');
+const { EXTENSION_ORIGIN } = require('./lib/secrets');
 const { HttpError, cleanName, cleanSale, isUuid } = require('./lib/validate');
 
 const PUBLIC_DIR = path.join(__dirname, 'public');
@@ -17,16 +17,6 @@ const TYPES = {
   '.txt': 'text/plain; charset=utf-8',
   '.webmanifest': 'application/manifest+json',
 };
-
-function safeEqual(left, right) {
-  const a = Buffer.from(String(left));
-  const b = Buffer.from(String(right));
-  if (a.length !== b.length) {
-    crypto.timingSafeEqual(a, a);
-    return false;
-  }
-  return crypto.timingSafeEqual(a, b);
-}
 
 function clientIp(req) {
   return req.socket.remoteAddress || 'unknown';
@@ -89,20 +79,11 @@ function cookieValue(req, name) {
 
 function applyCors(req, res) {
   const origin = req.headers.origin || '';
-  let allowed = false;
-  if (origin.startsWith('chrome-extension://') || origin.startsWith('moz-extension://')) allowed = true;
-  try {
-    const url = new URL(origin);
-    const funpay = url.protocol === 'https:' && (url.hostname === 'funpay.com' || url.hostname.endsWith('.funpay.com'));
-    if (funpay) allowed = true;
-  } catch {
-    allowed = allowed;
-  }
-  if (!allowed) return;
+  if (origin !== EXTENSION_ORIGIN) return;
   res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Vary', 'Origin');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-LLV-Key, X-Requested-With');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, X-LLV-Token');
   res.setHeader('Access-Control-Max-Age', '600');
 }
 
@@ -133,9 +114,9 @@ function publicFile(urlPath) {
 async function createApp(env = process.env) {
   const store = createAppStore(env);
   await store.init();
+  await store.ensureOwner(env.SITE_PASSWORD || '');
   const allow = createLimiter();
-  const password = env.SITE_PASSWORD || '';
-  const extensionKey = env.EXTENSION_KEY || '';
+  const SESSION_MAX = 12 * 60 * 60;
 
   async function requireSession(req) {
     const id = cookieValue(req, 'llv_session');
@@ -145,10 +126,13 @@ async function createApp(env = process.env) {
     return session;
   }
 
-  function requireExtension(req) {
-    if (!extensionKey) throw new HttpError(503, 'extension_key_unconfigured');
-    const header = req.headers['x-llv-key'] || '';
-    if (!header || !safeEqual(header, extensionKey)) throw new HttpError(401, 'unauthorized');
+  async function requireWorker(req) {
+    if (req.headers['x-llv-key']) throw new HttpError(401, 'unauthorized');
+    const token = String(req.headers['x-llv-token'] || '');
+    if (!/^llv_[A-Za-z0-9_-]{40,80}$/.test(token)) throw new HttpError(401, 'unauthorized');
+    const worker = await store.workerFromToken(token);
+    if (!worker) throw new HttpError(401, 'unauthorized');
+    return worker;
   }
 
   function requirePagePost(req) {
@@ -181,17 +165,18 @@ async function createApp(env = process.env) {
 
     if (pathname === '/api/login' && req.method === 'POST') {
       requirePagePost(req);
-      if (!allow(`login:${ip}`, 20, 10 * 60 * 1000)) throw new HttpError(429, 'rate_limited');
-      if (!password) throw new HttpError(503, 'password_unconfigured');
+      if (!allow(`login:${ip}`, 5, 15 * 60 * 1000)) throw new HttpError(429, 'rate_limited');
       const body = await readBody(req);
       const given = String(body.password || '').slice(0, 128);
-      if (!given || !safeEqual(given, password)) throw new HttpError(401, 'unauthorized');
-      const session = await store.createSession();
+      const name = body.name ? cleanName(body.name) : '';
+      const admin = given ? await store.loginAdmin(name, given) : null;
+      if (!admin) throw new HttpError(401, 'unauthorized');
+      const session = await store.createSession(admin.id);
       const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
       const secure = proto === 'https' || req.socket.encrypted ? '; Secure' : '';
       res.setHeader(
         'Set-Cookie',
-        `llv_session=${encodeURIComponent(session.id)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${14 * 24 * 60 * 60}${secure}`
+        `llv_session=${encodeURIComponent(session.id)}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${SESSION_MAX}${secure}`
       );
       send(res, 200, { ok: true });
       return;
@@ -201,7 +186,7 @@ async function createApp(env = process.env) {
       requirePagePost(req);
       const id = cookieValue(req, 'llv_session');
       if (id) await store.deleteSession(id);
-      res.setHeader('Set-Cookie', 'llv_session=; HttpOnly; SameSite=Lax; Path=/; Max-Age=0');
+      res.setHeader('Set-Cookie', 'llv_session=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0');
       send(res, 200, { ok: true });
       return;
     }
@@ -244,41 +229,70 @@ async function createApp(env = process.env) {
       return;
     }
 
+    if (pathname === '/api/workers' && req.method === 'POST') {
+      requirePagePost(req);
+      if (!allow(`write:${ip}`, 30, 60 * 1000)) throw new HttpError(429, 'rate_limited');
+      await requireSession(req);
+      const body = await readBody(req);
+      send(res, 200, await store.issueWorker(cleanName(body.name)));
+      return;
+    }
+
+    const tokenMatch = pathname.match(/^\/api\/workers\/([^/]+)\/token$/);
+    if (tokenMatch && req.method === 'POST') {
+      requirePagePost(req);
+      if (!allow(`write:${ip}`, 30, 60 * 1000)) throw new HttpError(429, 'rate_limited');
+      await requireSession(req);
+      if (!isUuid(tokenMatch[1])) throw new HttpError(400, 'bad_request');
+      send(res, 200, await store.rotateWorkerToken(tokenMatch[1]));
+      return;
+    }
+
+    if (pathname === '/api/admins' && req.method === 'POST') {
+      requirePagePost(req);
+      if (!allow(`write:${ip}`, 10, 60 * 1000)) throw new HttpError(429, 'rate_limited');
+      await requireSession(req);
+      const body = await readBody(req);
+      const next = String(body.password || '');
+      if (next.length < 10 || next.length > 128) throw new HttpError(400, 'bad_request');
+      await store.createAdmin(cleanName(body.name), next);
+      send(res, 200, { ok: true });
+      return;
+    }
+
     if (pathname.startsWith('/api/ext/')) {
       if (!allow(`ext:${ip}`, 600, 60 * 1000)) throw new HttpError(429, 'rate_limited');
-      requireExtension(req);
-    }
+      const worker = await requireWorker(req);
 
-    if (pathname === '/api/ext/shift/start' && req.method === 'POST') {
-      const body = await readBody(req);
-      const name = cleanName(body.workerName);
-      send(res, 200, await store.startShift(name));
-      return;
-    }
-
-    if (pathname === '/api/ext/shift/end' && req.method === 'POST') {
-      const body = await readBody(req);
-      if (!isUuid(body.shiftId)) throw new HttpError(400, 'bad_request');
-      send(res, 200, { shift: await store.endShift(body.shiftId) });
-      return;
-    }
-
-    if (pathname === '/api/ext/shift/ping' && req.method === 'POST') {
-      const body = await readBody(req);
-      if (!isUuid(body.shiftId)) throw new HttpError(400, 'bad_request');
-      send(res, 200, { shift: await store.touchShift(body.shiftId) });
-      return;
-    }
-
-    if (pathname === '/api/ext/sales' && req.method === 'POST') {
-      const body = await readBody(req);
-      if (!isUuid(body.shiftId)) throw new HttpError(400, 'bad_request');
-      if (!Array.isArray(body.sales) || body.sales.length < 1 || body.sales.length > 40) {
-        throw new HttpError(400, 'bad_sale');
+      if (pathname === '/api/ext/shift/start' && req.method === 'POST') {
+        await readBody(req);
+        send(res, 200, await store.startShiftForWorker(worker.id));
+        return;
       }
-      const sales = body.sales.map(cleanSale);
-      send(res, 200, await store.addSales(body.shiftId, sales));
-      return;
+
+      if (pathname === '/api/ext/shift/end' && req.method === 'POST') {
+        const body = await readBody(req);
+        if (!isUuid(body.shiftId)) throw new HttpError(400, 'bad_request');
+        send(res, 200, { shift: await store.endShift(body.shiftId, worker.id) });
+        return;
+      }
+
+      if (pathname === '/api/ext/shift/ping' && req.method === 'POST') {
+        const body = await readBody(req);
+        if (!isUuid(body.shiftId)) throw new HttpError(400, 'bad_request');
+        send(res, 200, { shift: await store.touchShift(body.shiftId, worker.id) });
+        return;
+      }
+
+      if (pathname === '/api/ext/sales' && req.method === 'POST') {
+        const body = await readBody(req);
+        if (!isUuid(body.shiftId)) throw new HttpError(400, 'bad_request');
+        if (!Array.isArray(body.sales) || body.sales.length < 1 || body.sales.length > 40) {
+          throw new HttpError(400, 'bad_sale');
+        }
+        send(res, 200, await store.addSales(body.shiftId, body.sales.map(cleanSale), worker.id));
+        return;
+      }
     }
 
     if (!pathname.startsWith('/api/') && (req.method === 'GET' || req.method === 'HEAD')) {

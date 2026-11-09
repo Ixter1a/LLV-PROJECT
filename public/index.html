@@ -27,6 +27,8 @@
       <p class="eyebrow">Панель смен</p>
       <h1>Кто сколько сделал</h1>
       <p class="lede">Расширение на FunPay открывает смену и само присылает новые заказы. Чистыми остаётся 10% оборота.</p>
+      <label for="login-name">Имя входа</label>
+      <input id="login-name" name="name" maxlength="32" placeholder="Можно пустым, если вход один" autocomplete="username">
       <label for="password">Пароль</label>
       <input id="password" name="password" type="password" autocomplete="current-password" required maxlength="128">
       <p id="login-error" class="error" role="alert"></p>
@@ -50,7 +52,17 @@
           <p class="eyebrow">Люди</p>
           <button id="everyone" class="text" type="button" hidden>Вся команда</button>
         </div>
+        <form id="new-worker" class="issue">
+          <input id="new-worker-name" maxlength="32" placeholder="Новое имя" autocomplete="off">
+          <button class="mini" type="submit">Ключ</button>
+        </form>
+        <p id="issued" class="issued" hidden></p>
         <div id="roster" class="roster"></div>
+        <form id="new-admin" class="issue">
+          <input id="admin-name" maxlength="32" placeholder="Свой вход" autocomplete="off">
+          <input id="admin-password" type="password" maxlength="128" placeholder="Свой пароль" autocomplete="new-password">
+          <button class="mini" type="submit">Добавить</button>
+        </form>
       </aside>
 
       <div class="stage">
