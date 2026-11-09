@@ -346,6 +346,36 @@ async function createApp(env = process.env) {
   return { server, store, kind: store.kind };
 }
 
+function safeStartupMessage(error) {
+  const message = String((error && error.message) || 'unknown').replace(/postgres(?:ql)?:\/\/\S+/gi, 'postgres://redacted');
+  return message.slice(0, 300);
+}
+
+let hostedApp;
+
+function loadHostedApp() {
+  if (!hostedApp) {
+    hostedApp = createApp(process.env).catch((error) => {
+      hostedApp = null;
+      throw error;
+    });
+  }
+  return hostedApp;
+}
+
+async function handler(req, res) {
+  try {
+    const { server } = await loadHostedApp();
+    server.emit('request', req, res);
+  } catch (error) {
+    console.error('startup failed');
+    console.error(safeStartupMessage(error));
+    if (res.headersSent) return;
+    res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ error: 'startup_failed' }));
+  }
+}
+
 async function main() {
   const { server, kind } = await createApp(process.env);
   const port = Number(process.env.PORT) || 8787;
@@ -358,9 +388,10 @@ async function main() {
 if (require.main === module) {
   main().catch((error) => {
     console.error('startup failed');
-    console.error(error && error.message ? error.message : 'unknown');
+    console.error(safeStartupMessage(error));
     process.exit(1);
   });
 }
 
-module.exports = { createApp };
+module.exports = handler;
+module.exports.createApp = createApp;

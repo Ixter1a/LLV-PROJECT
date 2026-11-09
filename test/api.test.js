@@ -224,6 +224,33 @@ test('a personal key cannot touch another worker, and a closed shift rejects sal
   }
 });
 
+test('the hosting handler serves health without a manual listen', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'llv-host-'));
+  const previous = {
+    DATA_FILE: process.env.DATA_FILE,
+    SITE_PASSWORD: process.env.SITE_PASSWORD,
+    DATABASE_URL: process.env.DATABASE_URL,
+  };
+  process.env.DATA_FILE = path.join(dir, 'store.json');
+  process.env.SITE_PASSWORD = password;
+  delete process.env.DATABASE_URL;
+  const handler = require('../server');
+  assert.equal(typeof handler, 'function');
+  const hosted = http.createServer(handler);
+  await new Promise((resolve) => hosted.listen(0, '127.0.0.1', resolve));
+  try {
+    const response = await fetch(`http://127.0.0.1:${hosted.address().port}/api/health`);
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { ok: true });
+  } finally {
+    hosted.close();
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
+});
+
 test('login slows down and only the shipped extension origin is allowed', async () => {
   const { server, base } = await start();
   try {
