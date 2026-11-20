@@ -200,3 +200,65 @@
   font: inherit;
   cursor: pointer;
 }
+
+#llv-shift-root .llv-more { display: grid; gap: 16px; margin-top: 14px; }
+#llv-shift-root .llv-more[hidden] { display: none; }
+#llv-shift-root .llv-more section { display: grid; gap: 8px; }
+#llv-shift-root .llv-check { display: flex; gap: 8px; align-items: center; color: #fff; font-size: 14px; }
+#llv-shift-root .llv-select,
+#llv-shift-root .llv-more input[type="file"] {
+  width: 100%;
+  color: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  padding: 8px;
+}
+
+.llv-toast {
+  position: fixed;
+  z-index: 2147483646;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: #000;
+  color: #fff;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font: 14px/1.4 "Segoe UI", sans-serif;
+}
+
+.llv-own { box-shadow: inset 3px 0 0 #111; }
+.llv-real, .llv-cost-line { color: #333; font-size: 12px; }
+.llv-fee { margin-left: 10px; color: #333; font-size: 14px; font-weight: 500; }
+.llv-exact { display: grid; gap: 6px; margin: 8px 0; color: #111; }
+.llv-exact input { display: block; width: 100%; margin-top: 4px; }
+.llv-emoji, .llv-copy-order {
+  margin: 0 8px 8px 0;
+  border: 1px solid #111;
+  background: #fff;
+  color: #111;
+  border-radius: 8px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.llv-emoji-pop, .llv-quick-pop { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.llv-chart { display: grid; gap: 6px; }
+.llv-chart span { display: inline-block; height: 8px; background: #fff; vertical-align: middle; }
+
+html.llv-hide-balance header [class*="balance"],
+html.llv-hide-balance .badge-balance,
+html.llv-hide-balance .user-link-balance { filter: blur(8px); }
+html.llv-privacy .user-link-name,
+html.llv-privacy header [class*="balance"],
+html.llv-privacy .tc-order,
+html.llv-privacy a[href*="/orders/"] { filter: blur(7px); }
+html.llv-privacy .user-link-name:hover,
+html.llv-privacy header [class*="balance"]:hover,
+html.llv-privacy .tc-order:hover,
+html.llv-privacy a[href*="/orders/"]:hover { filter: none; }
+html.llv-dark body { background: #141414; color: #f3f3f3; }
+html.llv-dark header, html.llv-dark .navbar { background: #000; color: #fff; }
+html.llv-dark .tc-item { background: #1c1c1c; color: #f5f5f5; }
+html.llv-show-promo [class*="promo-lot"],
+html.llv-show-promo [class*="offer-promo"] { display: inline-flex; visibility: visible; }

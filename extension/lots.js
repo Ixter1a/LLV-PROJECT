@@ -318,6 +318,7 @@
     } else {
       control.click();
     }
+    try { doc.dispatchEvent(new CustomEvent("llv-raised")); } catch (error) { /* page can block events */ }
     return { ok: true };
   }
 

@@ -77,6 +77,7 @@
         return;
       }
       commands.innerHTML =
+        cmd("all", "Выбрать все") +
         cmd("activate", "Включить") +
         cmd("deactivate", "Выключить") +
         cmd("price", "Изменить цену") +
@@ -395,6 +396,11 @@
       if (id === "select") {
         selecting = true;
         render();
+        paintChecks();
+        return;
+      }
+      if (id === "all") {
+        visibleLots().forEach(function (lot) { selected[lot.id] = true; });
         paintChecks();
         return;
       }

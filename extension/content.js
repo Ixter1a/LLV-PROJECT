@@ -177,6 +177,7 @@
           statusNode.classList.remove("flash");
           void statusNode.offsetWidth;
           statusNode.classList.add("flash");
+          document.dispatchEvent(new CustomEvent("llv-sale"));
         }
       });
     });
@@ -264,6 +265,7 @@
     });
     paint();
     if (window.LLVLotsUI) window.LLVLotsUI.attach(root);
+    if (window.LLVSeller) window.LLVSeller.attach(root);
   }
 
   function onClick() {
