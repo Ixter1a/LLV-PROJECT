@@ -1,20 +1,32 @@
 (function (root) {
+  var COMMANDS = [
+    { id: "raise", label: "Поднять" },
+    { id: "copy", label: "Копировать" },
+    { id: "duplicate", label: "Дублировать" },
+    { id: "edit", label: "Цена и описание" },
+    { id: "titles", label: "Замена в названии" }
+  ];
+
   function attach(panelRoot) {
     var lotsApi = root.LLVLots;
-    if (!lotsApi || panelRoot.querySelector(".llv-lots")) return;
-    var host = document.createElement("div");
-    host.className = "llv-lots";
-    host.hidden = true;
-    panelRoot.querySelector(".llv-panel").appendChild(host);
-    var opener = document.createElement("button");
-    opener.type = "button";
-    opener.className = "llv-link";
-    opener.textContent = "Лоты";
-    panelRoot.querySelector(".llv-body").appendChild(opener);
-    var screen = "home";
+    var commands = panelRoot.querySelector(".llv-commands");
+    var work = panelRoot.querySelector(".llv-work");
+    if (!lotsApi || !commands || !work || commands.childElementCount) return;
     var selected = {};
-    var action = "raise";
     var preview = [];
+    var active = "";
+    var draft = { price: "", desc: "", from: "", to: "" };
+
+    function remember() {
+      var price = work.querySelector(".llv-price");
+      var desc = work.querySelector(".llv-desc");
+      var from = work.querySelector(".llv-from");
+      var to = work.querySelector(".llv-to");
+      if (price) draft.price = price.value;
+      if (desc) draft.desc = desc.value;
+      if (from) draft.from = from.value;
+      if (to) draft.to = to.value;
+    }
 
     function ownLots() {
       return lotsApi.collectLots(document).lots;
@@ -24,18 +36,30 @@
       return ownLots().filter(function (lot) { return selected[lot.id]; });
     }
 
-    function showShift() {
-      host.hidden = true;
-      panelRoot.querySelector(".llv-body").hidden = false;
+    function showCommands() {
+      active = "";
+      work.hidden = true;
+      work.innerHTML = "";
+      commands.hidden = false;
     }
 
-    function showLots() {
-      panelRoot.querySelector(".llv-body").hidden = true;
-      host.hidden = false;
-      render();
+    function showWork() {
+      commands.hidden = true;
+      work.hidden = false;
     }
 
-    opener.addEventListener("click", showLots);
+    commands.innerHTML =
+      '<p class="llv-kicker">Лоты</p>' +
+      COMMANDS.map(function (command) {
+        return '<button type="button" class="llv-cmd" data-cmd="' + command.id + '">' + command.label + "</button>";
+      }).join("");
+
+    commands.addEventListener("click", function (event) {
+      var button = event.target.closest(".llv-cmd");
+      if (!button || !commands.contains(button)) return;
+      active = button.getAttribute("data-cmd");
+      openCommand(active);
+    });
 
     function field(label, className, value, placeholder) {
       return '<label class="llv-field"><span>' + label + '</span><input class="' + className + '" value="' +
@@ -52,131 +76,145 @@
       return escapeHtml(value);
     }
 
-    function render() {
-      if (screen === "preview") renderPreview();
-      else if (screen === "edit") renderEdit();
-      else if (screen === "result") renderResult();
-      else renderHome();
+    function labelOf(id) {
+      var found = COMMANDS.filter(function (command) { return command.id === id; })[0];
+      return found ? found.label : id;
     }
 
-    function renderHome() {
+    function lotList() {
       var lots = ownLots();
-      var items = lots.map(function (lot) {
-        var checked = selected[lot.id] ? " checked" : "";
-        return '<label class="llv-check"><input type="checkbox" data-id="' + escapeAttr(lot.id) + '"' + checked + ' /><span>' +
-          escapeHtml(lot.title || lot.id) + '</span></label>';
-      }).join("");
-      host.innerHTML =
-        '<button type="button" class="llv-link" data-act="back">К смене</button>' +
-        '<p class="llv-kicker">Свои лоты на этой странице</p>' +
-        (lots.length
-          ? '<label class="llv-check"><input type="checkbox" data-act="all" /><span>Выбрать все</span></label>' + items
-          : '<p class="llv-note">Своих лотов здесь нет. Откройте категорию, где вы уже продаёте.</p>') +
-        '<div class="llv-choices">' +
-          choice("raise", "Поднять") +
-          choice("copy", "Копировать") +
-          choice("duplicate", "Дублировать") +
-          choice("edit", "Цена и описание") +
-          choice("titles", "Замена в названии") +
-        '</div>' +
-        '<button type="button" class="llv-btn" data-act="next">Дальше</button>' +
-        '<p class="llv-note" data-role="hint"></p>';
-      bindHome();
+      if (!lots.length) {
+        return '<p class="llv-note">Своих лотов здесь нет. Откройте категорию, где вы уже продаёте.</p>';
+      }
+      return '<label class="llv-check"><input type="checkbox" data-act="all" /><span>Выбрать все</span></label>' +
+        lots.map(function (lot) {
+          var checked = selected[lot.id] ? " checked" : "";
+          return '<label class="llv-check"><input type="checkbox" data-id="' + escapeAttr(lot.id) + '"' + checked +
+            " /><span>" + escapeHtml(lot.title || lot.id) + "</span></label>";
+        }).join("");
     }
 
-    function choice(value, label) {
-      return '<label class="llv-check"><input type="radio" name="llv-act" value="' + value + '"' +
-        (action === value ? " checked" : "") + ' /><span>' + label + '</span></label>';
-    }
-
-    function bindHome() {
-      host.querySelector("[data-act='back']").addEventListener("click", showShift);
-      var all = host.querySelector("[data-act='all']");
+    function bindLots(onMissing) {
+      var all = work.querySelector("[data-act='all']");
       if (all) {
         all.addEventListener("change", function () {
           ownLots().forEach(function (lot) { selected[lot.id] = all.checked; });
-          renderHome();
+          openCommand(active);
         });
       }
-      host.querySelectorAll("input[data-id]").forEach(function (input) {
+      work.querySelectorAll("input[data-id]").forEach(function (input) {
         input.addEventListener("change", function () {
           selected[input.getAttribute("data-id")] = input.checked;
         });
       });
-      host.querySelectorAll("input[name='llv-act']").forEach(function (input) {
-        input.addEventListener("change", function () { action = input.value; });
-      });
-      host.querySelector("[data-act='next']").addEventListener("click", onNext);
-    }
-
-    function onNext() {
-      var lots = chosen();
-      var hint = host.querySelector("[data-role='hint']");
-      if (!lots.length) {
-        hint.textContent = "Отметьте хотя бы один лот";
-        return;
-      }
-      if (action === "raise") {
-        var raised = lotsApi.raiseOnPage(document);
-        screen = "result";
-        preview = lots.map(function (lot) {
-          return { id: lot.id, title: lot.title, ok: raised.ok, error: raised.error || "" };
-        });
-        render();
-        return;
-      }
-      if (action === "edit") {
-        screen = "edit";
-        render();
-        return;
-      }
-      if (action === "titles") {
-        screen = "titles";
-        renderTitles();
-        return;
-      }
-      runClone(lots, action === "duplicate" ? " копия" : "");
-    }
-
-    function renderTitles() {
-      host.innerHTML =
-        '<button type="button" class="llv-link" data-act="back">Назад</button>' +
-        '<p class="llv-kicker">Одно слово во всех отмеченных названиях</p>' +
-        field("Было", "llv-from", "", "Аренда") +
-        field("Стало", "llv-to", "", "Продажа") +
-        '<button type="button" class="llv-btn" data-act="preview">Показать замену</button>';
-      host.querySelector("[data-act='back']").addEventListener("click", function () {
-        screen = "home";
-        renderHome();
-      });
-      host.querySelector("[data-act='preview']").addEventListener("click", function () {
-        var from = host.querySelector(".llv-from").value;
-        var to = host.querySelector(".llv-to").value;
-        if (!from) {
-          host.querySelector(".llv-kicker").textContent = "Введите слово, которое нужно заменить";
+      var go = work.querySelector("[data-act='go']");
+      if (!go) return;
+      go.addEventListener("click", function () {
+        if (!chosen().length) {
+          work.querySelector(".llv-kicker").textContent = "Отметьте хотя бы один лот";
           return;
         }
-        preview = lotsApi.previewTitles(chosen(), from, to);
-        screen = "preview";
-        renderPreview();
+        onMissing();
       });
     }
 
-    function renderPreview() {
+    function shell(extra, buttonLabel) {
+      showWork();
+      work.innerHTML =
+        '<button type="button" class="llv-link" data-act="back">К командам</button>' +
+        '<p class="llv-kicker">' + escapeHtml(labelOf(active)) + "</p>" +
+        lotList() +
+        extra +
+        (ownLots().length && buttonLabel
+          ? '<button type="button" class="llv-btn" data-act="go">' + escapeHtml(buttonLabel) + "</button>"
+          : "") +
+        '<p class="llv-note" data-role="hint"></p>';
+      work.querySelector("[data-act='back']").addEventListener("click", showCommands);
+    }
+
+    function openCommand(id) {
+      remember();
+      if (id === "edit") {
+        shell(
+          field("Цена, ₽", "llv-price", draft.price, "Пусто — не менять") +
+          '<label class="llv-field"><span>Описание</span><textarea class="llv-desc" placeholder="Пусто — не менять">' +
+          escapeHtml(draft.desc) + "</textarea></label>",
+          "Сохранить"
+        );
+        bindLots(saveEdit);
+        return;
+      }
+      if (id === "titles") {
+        shell(
+          field("Было", "llv-from", draft.from, "Аренда") +
+          field("Стало", "llv-to", draft.to, "Продажа"),
+          "Показать замену"
+        );
+        bindLots(showPreview);
+        return;
+      }
+      shell("", labelOf(id));
+      bindLots(function () {
+        if (id === "raise") runRaise();
+        else runClone(id === "duplicate" ? " копия" : "");
+      });
+    }
+
+    function runRaise() {
+      var raised = lotsApi.raiseOnPage(document);
+      preview = chosen().map(function (lot) {
+        return { id: lot.id, title: lot.title, ok: raised.ok, error: raised.error || "" };
+      });
+      renderResult();
+    }
+
+    function runClone(suffix) {
+      lotsApi.eachLot(chosen(), function (lot) {
+        return lotsApi.cloneLot(lot, location, fetch, suffix);
+      }).then(function (results) {
+        preview = results;
+        renderResult();
+      });
+    }
+
+    function saveEdit() {
+      var price = work.querySelector(".llv-price").value.trim();
+      var description = work.querySelector(".llv-desc").value;
+      if (!price && !description.trim()) {
+        work.querySelector(".llv-kicker").textContent = "Заполните цену или описание";
+        return;
+      }
+      lotsApi.eachLot(chosen(), function (lot) {
+        return lotsApi.editLot(lot, location, fetch, { price: price, description: description.trim() });
+      }).then(function (results) {
+        preview = results;
+        renderResult();
+      });
+    }
+
+    function showPreview() {
+      remember();
+      var from = draft.from;
+      var to = draft.to;
+      if (!from) {
+        work.querySelector(".llv-kicker").textContent = "Введите слово, которое нужно заменить";
+        return;
+      }
+      preview = lotsApi.previewTitles(chosen(), from, to);
       var rows = preview.map(function (row) {
-        return '<p class="llv-pair"><span>' + escapeHtml(row.before || "—") + '</span><span>' +
-          escapeHtml(row.changed ? row.after : "без изменений") + '</span></p>';
+        return '<p class="llv-pair"><span>' + escapeHtml(row.before || "—") + "</span><span>" +
+          escapeHtml(row.changed ? row.after : "без изменений") + "</span></p>";
       }).join("");
-      host.innerHTML =
+      showWork();
+      work.innerHTML =
         '<button type="button" class="llv-link" data-act="back">Назад</button>' +
         '<p class="llv-kicker">Проверка перед записью</p>' +
         rows +
         '<button type="button" class="llv-btn" data-act="apply">Применить</button>';
-      host.querySelector("[data-act='back']").addEventListener("click", function () {
-        screen = "titles";
-        renderTitles();
+      work.querySelector("[data-act='back']").addEventListener("click", function () {
+        openCommand("titles");
       });
-      host.querySelector("[data-act='apply']").addEventListener("click", function () {
+      work.querySelector("[data-act='apply']").addEventListener("click", function () {
         var byId = {};
         preview.forEach(function (row) { byId[row.id] = row; });
         lotsApi.eachLot(chosen(), function (lot) {
@@ -185,47 +223,8 @@
           return lotsApi.editLot(lot, location, fetch, { title: row.after });
         }).then(function (results) {
           preview = results;
-          screen = "result";
           renderResult();
         });
-      });
-    }
-
-    function renderEdit() {
-      host.innerHTML =
-        '<button type="button" class="llv-link" data-act="back">Назад</button>' +
-        '<p class="llv-kicker">Новая цена и описание</p>' +
-        field("Цена, ₽", "llv-price", "", "Оставьте пустым, чтобы не менять") +
-        '<label class="llv-field"><span>Описание</span><textarea class="llv-desc" placeholder="Оставьте пустым, чтобы не менять"></textarea></label>' +
-        '<button type="button" class="llv-btn" data-act="save">Сохранить</button>';
-      host.querySelector("[data-act='back']").addEventListener("click", function () {
-        screen = "home";
-        renderHome();
-      });
-      host.querySelector("[data-act='save']").addEventListener("click", function () {
-        var price = host.querySelector(".llv-price").value.trim();
-        var description = host.querySelector(".llv-desc").value;
-        if (!price && !description.trim()) {
-          host.querySelector(".llv-kicker").textContent = "Заполните цену или описание";
-          return;
-        }
-        lotsApi.eachLot(chosen(), function (lot) {
-          return lotsApi.editLot(lot, location, fetch, { price: price, description: description.trim() });
-        }).then(function (results) {
-          preview = results;
-          screen = "result";
-          renderResult();
-        });
-      });
-    }
-
-    function runClone(lots, suffix) {
-      lotsApi.eachLot(lots, function (lot) {
-        return lotsApi.cloneLot(lot, location, fetch, suffix);
-      }).then(function (results) {
-        preview = results;
-        screen = "result";
-        renderResult();
       });
     }
 
@@ -233,16 +232,14 @@
       var rows = preview.map(function (row) {
         var state = row.skipped ? "без изменений" : (row.ok ? "готово" : row.error || "ошибка");
         return '<p class="llv-pair" data-lot="' + escapeAttr(row.id) + '"><span>' +
-          escapeHtml(row.title || row.id) + '</span><span>' + escapeHtml(state) + '</span></p>';
+          escapeHtml(row.title || row.id) + "</span><span>" + escapeHtml(state) + "</span></p>";
       }).join("");
-      host.innerHTML =
+      showWork();
+      work.innerHTML =
         '<p class="llv-kicker">Результат по каждому лоту</p>' +
         rows +
-        '<button type="button" class="llv-btn" data-act="done">К списку</button>';
-      host.querySelector("[data-act='done']").addEventListener("click", function () {
-        screen = "home";
-        renderHome();
-      });
+        '<button type="button" class="llv-btn" data-act="done">К командам</button>';
+      work.querySelector("[data-act='done']").addEventListener("click", showCommands);
     }
   }
 

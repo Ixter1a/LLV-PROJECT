@@ -2,10 +2,10 @@
   all: initial;
   position: fixed;
   z-index: 2147483646;
-  left: 50%;
-  top: 18%;
-  transform: translateX(-50%);
-  width: min(380px, calc(100vw - 32px));
+  top: 16px;
+  right: 16px;
+  bottom: 16px;
+  width: min(320px, calc(100vw - 32px));
   color: #fff;
   font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   line-height: 1.4;
@@ -13,8 +13,17 @@
 
 #llv-shift-root * { box-sizing: border-box; }
 
+#llv-shift-root.is-collapsed {
+  bottom: auto;
+  width: auto;
+}
+
+#llv-shift-root.is-collapsed .llv-panel { display: none; }
+
 #llv-shift-root .llv-panel {
-  padding: 22px;
+  height: 100%;
+  overflow: auto;
+  padding: 22px 20px;
   border-radius: 18px;
   color: #fff;
   background: rgba(0, 0, 0, 0.94);
@@ -23,10 +32,16 @@
   -webkit-backdrop-filter: blur(10px);
 }
 
+#llv-shift-root .llv-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
 #llv-shift-root .llv-mark {
   width: 36px;
   height: 36px;
-  margin-bottom: 16px;
   border-radius: 10px;
   background: #000;
   border: 1px solid rgba(255, 255, 255, 0.16);
@@ -34,6 +49,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
+  flex: none;
 }
 
 #llv-shift-root .llv-mark img {
@@ -56,14 +72,22 @@
 #llv-shift-root .llv-mark.use-fallback .llv-fallback { opacity: 1; }
 
 #llv-shift-root .llv-body,
-#llv-shift-root .llv-lots { display: grid; gap: 14px; }
+#llv-shift-root .llv-commands,
+#llv-shift-root .llv-work { display: grid; gap: 12px; }
 
-#llv-shift-root .llv-body[hidden],
-#llv-shift-root .llv-lots[hidden] { display: none; }
+#llv-shift-root .llv-commands[hidden],
+#llv-shift-root .llv-work[hidden],
+#llv-shift-root .llv-tab[hidden] { display: none; }
 
-#llv-shift-root .llv-title,
-#llv-shift-root .llv-kicker {
+#llv-shift-root .llv-title {
   margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+#llv-shift-root .llv-kicker {
+  margin: 8px 0 0;
   color: rgba(255, 255, 255, 0.78);
   font-size: 13px;
 }
@@ -72,7 +96,9 @@
 #llv-shift-root .llv-field input,
 #llv-shift-root .llv-field textarea,
 #llv-shift-root .llv-btn,
-#llv-shift-root .llv-link {
+#llv-shift-root .llv-cmd,
+#llv-shift-root .llv-link,
+#llv-shift-root .llv-tab {
   font: inherit;
   color: #fff;
 }
@@ -91,23 +117,44 @@
 
 #llv-shift-root.show-name .llv-name { display: block; }
 
-#llv-shift-root .llv-btn {
-  border: 0;
+#llv-shift-root .llv-btn,
+#llv-shift-root .llv-cmd {
+  width: 100%;
   border-radius: 10px;
-  background: #fff;
-  color: #000;
   padding: 12px 14px;
-  font-weight: 650;
+  text-align: left;
   cursor: pointer;
 }
 
-#llv-shift-root .llv-link {
-  justify-self: start;
+#llv-shift-root .llv-btn {
+  border: 0;
+  background: #fff;
+  color: #000;
+  font-weight: 650;
+}
+
+#llv-shift-root .llv-cmd {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: transparent;
+}
+
+#llv-shift-root .llv-link,
+#llv-shift-root .llv-tab {
   border: 0;
   background: transparent;
   color: rgba(255, 255, 255, 0.72);
   padding: 0;
   cursor: pointer;
+}
+
+#llv-shift-root .llv-hide { margin-left: auto; }
+
+#llv-shift-root .llv-tab {
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 12px;
+  background: #000;
+  color: #fff;
+  padding: 12px 14px;
 }
 
 #llv-shift-root .llv-status,
@@ -117,13 +164,8 @@
   font-size: 13px;
 }
 
-#llv-shift-root .llv-lots {
-  max-height: min(70vh, 560px);
-  overflow: auto;
-}
-
 #llv-shift-root .llv-field { display: grid; gap: 6px; }
-#llv-shift-root .llv-field span { color: rgba(255, 255, 255, 0.62); font-size: 13px; }
+#llv-shift-root .llv-field span { color: rgba(255, 255, 255, 0.72); font-size: 13px; }
 #llv-shift-root .llv-field textarea { min-height: 72px; resize: vertical; }
 
 #llv-shift-root .llv-check {
@@ -133,8 +175,6 @@
   color: #fff;
   font-size: 14px;
 }
-
-#llv-shift-root .llv-choices { display: grid; gap: 8px; }
 
 #llv-shift-root .llv-pair {
   display: grid;

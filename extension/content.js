@@ -212,27 +212,41 @@
     root.id = "llv-shift-root";
     root.innerHTML =
       '<div class="llv-panel">' +
-        '<div class="llv-mark">' +
-          '<img alt="" width="42" height="42" />' +
-          '<span class="llv-fallback" aria-hidden="true"></span>' +
+        '<div class="llv-head">' +
+          '<div class="llv-mark">' +
+            '<img alt="" width="42" height="42" />' +
+            '<span class="llv-fallback" aria-hidden="true"></span>' +
+          '</div>' +
+          '<div class="llv-title">LLV</div>' +
+          '<button class="llv-link llv-hide" type="button">Скрыть</button>' +
         '</div>' +
         '<div class="llv-body">' +
-          '<div class="llv-title">Смена FunPay</div>' +
           '<input class="llv-name" type="text" maxlength="64" placeholder="Имя на FunPay" autocomplete="off" />' +
-          '<button class="llv-btn" type="button">Начать смену</button>' +
+          '<button class="llv-btn llv-shift" type="button">Начать смену</button>' +
           '<div class="llv-status"></div>' +
+          '<div class="llv-commands"></div>' +
+          '<div class="llv-work" hidden></div>' +
         '</div>' +
-      '</div>';
+      '</div>' +
+      '<button class="llv-tab" type="button" hidden>LLV</button>';
     document.documentElement.appendChild(root);
     var image = root.querySelector("img");
     image.src = chrome.runtime.getURL("icons/icon.png");
     image.addEventListener("error", function () {
       root.querySelector(".llv-mark").classList.add("use-fallback");
     });
-    button = root.querySelector(".llv-btn");
+    button = root.querySelector(".llv-shift");
     nameInput = root.querySelector(".llv-name");
     statusNode = root.querySelector(".llv-status");
     button.addEventListener("click", onClick);
+    root.querySelector(".llv-hide").addEventListener("click", function () {
+      root.classList.add("is-collapsed");
+      root.querySelector(".llv-tab").hidden = false;
+    });
+    root.querySelector(".llv-tab").addEventListener("click", function () {
+      root.classList.remove("is-collapsed");
+      root.querySelector(".llv-tab").hidden = true;
+    });
     nameInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") onClick();
     });
