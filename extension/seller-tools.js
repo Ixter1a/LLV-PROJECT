@@ -7,6 +7,9 @@
       autoRaise: false,
       raiseMinutes: 30,
       raiseNotice: true,
+      quietOn: false,
+      quietFrom: "23",
+      quietTo: "8",
       highlight: false,
       promo: false,
       commission: "",
@@ -33,6 +36,7 @@
     if (!panelRoot || panelRoot.querySelector(".llv-more")) return;
     var settings = defaults();
     var raiseTimer = null;
+    var quietNoted = false;
     var box = document.createElement("div");
     box.className = "llv-more-wrap";
     box.innerHTML =
@@ -169,6 +173,14 @@
       if (!settings.autoRaise || !root.LLVLots) return;
       var minutes = Math.max(5, Number(settings.raiseMinutes) || 30);
       raiseTimer = setInterval(function () {
+        if (root.LLVLots.withinHours(new Date().getHours(), settings.quietFrom, settings.quietTo) && settings.quietOn) {
+          if (settings.raiseNotice && !quietNoted) {
+            quietNoted = true;
+            toast("Тихие часы, поднятие на паузе");
+          }
+          return;
+        }
+        quietNoted = false;
         var result = root.LLVLots.raiseOnPage(document);
         if (settings.raiseNotice) toast(result.ok ? "Раздел: поднято" : (result.error || "Не удалось поднять"));
       }, minutes * 60000);
@@ -401,6 +413,22 @@
         settings.raiseMinutes = value;
         storageSet();
         armRaise();
+      }));
+      offers.appendChild(check("Тихие часы", settings.quietOn, function (on) {
+        settings.quietOn = on;
+        quietNoted = false;
+        storageSet();
+        armRaise();
+      }));
+      offers.appendChild(field("С часа", settings.quietFrom, function (value) {
+        settings.quietFrom = value;
+        quietNoted = false;
+        storageSet();
+      }));
+      offers.appendChild(field("До часа", settings.quietTo, function (value) {
+        settings.quietTo = value;
+        quietNoted = false;
+        storageSet();
       }));
       offers.appendChild(check("Уведомление о поднятии", settings.raiseNotice, function (on) {
         settings.raiseNotice = on;

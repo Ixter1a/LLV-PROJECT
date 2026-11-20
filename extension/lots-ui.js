@@ -325,16 +325,40 @@
       file.click();
     }
 
+    function clip(text) {
+      var value = String(text || "").replace(/\s+/g, " ").trim();
+      return value.length > 140 ? value.slice(0, 140) + "…" : (value || "—");
+    }
+
+    function paintSimilar() {
+      document.querySelectorAll(".llv-dup").forEach(function (node) { node.classList.remove("llv-dup"); });
+      var ids = lotsApi.similarTitleIds(ownLots());
+      ids.forEach(function (id) {
+        var row = rowOf(id);
+        if (row) row.classList.add("llv-dup");
+      });
+      var note = panelRoot.querySelector(".llv-dup-note");
+      if (!note) {
+        note = document.createElement("p");
+        note.className = "llv-note llv-dup-note";
+        panelRoot.querySelector(".llv-panel").appendChild(note);
+      }
+      note.hidden = !ids.length;
+      note.textContent = ids.length ? ("Похожие названия, отличие в одном слове: " + ids.length) : "";
+    }
+
     function openTitles() {
       if (!needLots()) return;
       var dialog = openDialog(
-        '<p class="llv-kicker">Одно слово в отмеченных названиях</p>' +
+        '<p class="llv-kicker">Одно слово в названии и описании</p>' +
         '<label class="llv-field"><span>Было</span><input class="llv-from" placeholder="Аренда" /></label>' +
         '<label class="llv-field"><span>Стало</span><input class="llv-to" placeholder="Продажа" /></label>' +
         '<div class="llv-preview"></div>' +
         '<button type="button" class="llv-btn" data-act="preview">Показать замену</button>' +
         '<button type="button" class="llv-link" data-act="close">Закрыть</button>'
       );
+      var titleRows = [];
+      var descRows = [];
       dialog.querySelector("[data-act='preview']").addEventListener("click", function () {
         var from = dialog.querySelector(".llv-from").value;
         var to = dialog.querySelector(".llv-to").value;
@@ -342,29 +366,43 @@
           dialog.querySelector(".llv-kicker").textContent = "Введите слово, которое нужно заменить";
           return;
         }
-        var preview = lotsApi.previewTitles(chosen(), from, to);
-        dialog.querySelector(".llv-preview").innerHTML = preview.map(function (row) {
-          return '<p class="llv-pair"><span>' + escapeHtml(row.before || "—") + "</span><span>" +
-            escapeHtml(row.changed ? row.after : "без изменений") + "</span></p>";
+        titleRows = lotsApi.previewTitles(chosen(), from, to);
+        var body = titleRows.map(function (row) {
+          return '<p class="llv-pair"><span>Название</span><span>' + escapeHtml(row.before || "—") +
+            " → " + escapeHtml(row.changed ? row.after : "без изменений") + "</span></p>";
         }).join("");
-        var apply = dialog.querySelector("[data-act='apply']");
-        if (apply) return;
-        apply = document.createElement("button");
-        apply.type = "button";
-        apply.className = "llv-btn";
-        apply.setAttribute("data-act", "apply");
-        apply.textContent = "Применить";
-        dialog.appendChild(apply);
-        apply.addEventListener("click", function () {
-          var byId = {};
-          preview.forEach(function (row) { byId[row.id] = row; });
-          lotsApi.eachLot(chosen(), function (lot) {
-            var row = byId[lot.id];
-            if (!row || !row.changed) return Promise.resolve({ ok: true, skipped: true });
-            return lotsApi.editLot(lot, location, fetch, { title: row.after });
-          }).then(function (results) {
-            dialog.remove();
-            showResults(results);
+        dialog.querySelector(".llv-preview").innerHTML = body + '<p class="llv-note">Описания читаются…</p>';
+        lotsApi.previewDescriptions(chosen(), from, to, location, fetch).then(function (rows) {
+          if (!dialog.isConnected) return;
+          descRows = rows;
+          dialog.querySelector(".llv-preview").innerHTML = body + rows.map(function (row) {
+            var after = row.error ? row.error : (row.changed ? clip(row.after) : "без изменений");
+            return '<p class="llv-pair" data-lot="' + escapeAttr(row.id) + '"><span>Описание · ' +
+              escapeHtml(row.title || row.id) + "</span><span>" + escapeHtml(clip(row.before)) +
+              " → " + escapeHtml(after) + "</span></p>";
+          }).join("");
+          if (dialog.querySelector("[data-act='apply']")) return;
+          var apply = document.createElement("button");
+          apply.type = "button";
+          apply.className = "llv-btn";
+          apply.setAttribute("data-act", "apply");
+          apply.textContent = "Применить";
+          dialog.appendChild(apply);
+          apply.addEventListener("click", function () {
+            var titles = {};
+            var descriptions = {};
+            titleRows.forEach(function (row) { titles[row.id] = row; });
+            descRows.forEach(function (row) { descriptions[row.id] = row; });
+            lotsApi.eachLot(chosen(), function (lot) {
+              var changes = {};
+              if (titles[lot.id] && titles[lot.id].changed) changes.title = titles[lot.id].after;
+              if (descriptions[lot.id] && descriptions[lot.id].changed) changes.description = descriptions[lot.id].after;
+              if (!changes.title && !changes.description) return Promise.resolve({ ok: true, skipped: true });
+              return lotsApi.editLot(lot, location, fetch, changes);
+            }).then(function (results) {
+              dialog.remove();
+              showResults(results);
+            });
           });
         });
       });
@@ -425,9 +463,11 @@
       applySearch();
       paintChecks();
       paintForeign();
+      paintSimilar();
     });
 
     render();
+    paintSimilar();
   }
 
   root.LLVLotsUI = { attach: attach };

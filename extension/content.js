@@ -15,6 +15,7 @@
   var scanTimer = null;
   var observer = null;
   var lastSaleKey = null;
+  var shiftGoal = 0;
 
   function readAccountName() {
     var header = document.querySelector("header, .navbar, #header");
@@ -145,6 +146,30 @@
     }
     if (state.lastError) parts.push(state.lastError);
     statusNode.textContent = parts.join(" · ");
+    var goalLine = root.querySelector(".llv-goal-line");
+    if (!goalLine) return;
+    if (!(shiftGoal > 0) || !active) {
+      goalLine.hidden = true;
+      goalLine.textContent = "";
+      return;
+    }
+    var left = Math.max(0, Math.round((shiftGoal - Number(state.shift.salesRub || 0)) * 100) / 100);
+    goalLine.hidden = false;
+    goalLine.textContent = [
+      (state.shift.salesCount || 0) + " шт",
+      formatRub(state.shift.salesRub || 0),
+      "прибыль " + formatRub(netOf(state.shift.salesRub || 0)),
+      left > 0 ? ("осталось " + formatRub(left)) : "цель достигнута"
+    ].join(" · ");
+  }
+
+  function readGoal() {
+    var local = chrome.storage && chrome.storage.local;
+    if (!local || !local.get) return;
+    local.get("llvShiftGoal", function (data) {
+      shiftGoal = Number(data && data.llvShiftGoal) || 0;
+      if (root) paint();
+    });
   }
 
   function rememberBaseline(shiftId) {
@@ -236,7 +261,9 @@
         '<div class="llv-shift-row">' +
           '<input class="llv-name" type="text" maxlength="64" placeholder="Имя на FunPay" autocomplete="off" />' +
           '<button class="llv-btn llv-shift" type="button">Начать смену</button>' +
+          '<label class="llv-goal"><span>Цель смены, ₽</span><input class="llv-goal-input" inputmode="decimal" placeholder="2000" /></label>' +
           '<div class="llv-status"></div>' +
+          '<p class="llv-goal-line" hidden></p>' +
         '</div>' +
         '<div class="llv-commands"></div>' +
         '<div class="llv-work" hidden></div>' +
@@ -263,6 +290,14 @@
     nameInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") onClick();
     });
+    var goalInput = root.querySelector(".llv-goal-input");
+    goalInput.addEventListener("input", function () {
+      shiftGoal = Number(String(goalInput.value).replace(",", ".")) || 0;
+      var local = chrome.storage && chrome.storage.local;
+      if (local && local.set) local.set({ llvShiftGoal: shiftGoal });
+      paint();
+    });
+    readGoal();
     paint();
     if (window.LLVLotsUI) window.LLVLotsUI.attach(root);
     if (window.LLVSeller) window.LLVSeller.attach(root);

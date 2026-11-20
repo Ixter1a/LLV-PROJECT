@@ -49,6 +49,7 @@
 
 #llv-shift-root .llv-search,
 #llv-shift-root .llv-name,
+#llv-shift-root .llv-goal-input,
 #llv-shift-root .llv-field input,
 #llv-shift-root .llv-field textarea {
   width: 100%;
@@ -74,11 +75,18 @@
   margin-top: 12px;
 }
 
-#llv-shift-root .llv-status {
+#llv-shift-root .llv-status,
+#llv-shift-root .llv-goal-line {
   margin: 0;
   color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
 }
+
+#llv-shift-root .llv-goal { display: grid; gap: 4px; min-width: 140px; }
+#llv-shift-root .llv-goal span { color: rgba(255, 255, 255, 0.72); font-size: 13px; }
+#llv-shift-root .llv-goal-line { flex-basis: 100%; }
+#llv-shift-root .llv-goal-line[hidden],
+#llv-shift-root .llv-dup-note[hidden] { display: none; }
 
 #llv-shift-root .llv-commands,
 #llv-shift-root .llv-toolbar {
@@ -229,6 +237,7 @@
 }
 
 .llv-own { box-shadow: inset 3px 0 0 #111; }
+.llv-dup { outline: 2px solid #c45c26; outline-offset: -2px; }
 .llv-real, .llv-cost-line { color: #333; font-size: 12px; }
 .llv-fee { margin-left: 10px; color: #333; font-size: 14px; font-weight: 500; }
 .llv-exact { display: grid; gap: 6px; margin: 8px 0; color: #111; }

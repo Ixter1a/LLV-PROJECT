@@ -84,7 +84,7 @@
 
   function editUrl(lot, loc) {
     if (lot.editHref) {
-      try { return new URL(lot.editHref, loc.origin).href; } catch (error) { return ""; }
+      try { return new URL(lot.editHref, loc.href).href; } catch (error) { return ""; }
     }
     if (!lot.id || !lot.nodeId) return "";
     if (!/\/lots\/\d+/.test(loc.pathname || "")) return "";
@@ -103,6 +103,89 @@
       var after = replaceWord(lot.title, from, to);
       return { id: lot.id, before: lot.title, after: after, changed: after !== lot.title };
     });
+  }
+
+  function wordsOf(title) {
+    return String(title || "").trim().split(/\s+/).filter(Boolean);
+  }
+
+  function oneWordApart(left, right) {
+    var a = wordsOf(left);
+    var b = wordsOf(right);
+    if (!a.length || !b.length) return false;
+    if (a.length === b.length) {
+      var diff = 0;
+      for (var i = 0; i < a.length; i += 1) {
+        if (a[i].toLowerCase() !== b[i].toLowerCase()) diff += 1;
+      }
+      return diff === 1;
+    }
+    if (Math.abs(a.length - b.length) !== 1) return false;
+    var longer = a.length > b.length ? a : b;
+    var shorter = a.length > b.length ? b : a;
+    var iLong = 0;
+    var iShort = 0;
+    var skips = 0;
+    while (iLong < longer.length && iShort < shorter.length) {
+      if (longer[iLong].toLowerCase() === shorter[iShort].toLowerCase()) {
+        iLong += 1;
+        iShort += 1;
+      } else {
+        skips += 1;
+        iLong += 1;
+        if (skips > 1) return false;
+      }
+    }
+    return skips + (longer.length - iLong) === 1;
+  }
+
+  function similarTitleIds(lots) {
+    var marked = {};
+    for (var i = 0; i < lots.length; i += 1) {
+      for (var j = i + 1; j < lots.length; j += 1) {
+        if (!oneWordApart(lots[i].title, lots[j].title)) continue;
+        marked[lots[i].id] = true;
+        marked[lots[j].id] = true;
+      }
+    }
+    return Object.keys(marked);
+  }
+
+  function withinHours(hour, from, to) {
+    var start = Number(from);
+    var end = Number(to);
+    var now = Number(hour);
+    if (!isFinite(start) || !isFinite(end) || !isFinite(now)) return false;
+    start = ((Math.floor(start) % 24) + 24) % 24;
+    end = ((Math.floor(end) % 24) + 24) % 24;
+    now = ((Math.floor(now) % 24) + 24) % 24;
+    if (start === end) return false;
+    if (start < end) return now >= start && now < end;
+    return now >= start || now < end;
+  }
+
+  async function previewDescriptions(lots, from, to, loc, fetchImpl) {
+    var rows = [];
+    for (var i = 0; i < lots.length; i += 1) {
+      var lot = lots[i];
+      try {
+        var loaded = await loadForm(lot, loc, fetchImpl);
+        if (!loaded.ok) {
+          rows.push({ id: lot.id, title: lot.title, before: "", after: "", changed: false, error: loaded.error || "Описание не прочитано" });
+          continue;
+        }
+        if (!loaded.form.descField) {
+          rows.push({ id: lot.id, title: lot.title, before: "", after: "", changed: false, error: "В форме нет описания" });
+          continue;
+        }
+        var before = loaded.form.descField.value || "";
+        var after = replaceWord(before, from, to);
+        rows.push({ id: lot.id, title: lot.title, before: before, after: after, changed: after !== before, error: "" });
+      } catch (error) {
+        rows.push({ id: lot.id, title: lot.title, before: "", after: "", changed: false, error: error.message || "Ошибка" });
+      }
+    }
+    return rows;
   }
 
   function isLoginDoc(doc) {
@@ -328,6 +411,9 @@
     editUrl: editUrl,
     replaceWord: replaceWord,
     previewTitles: previewTitles,
+    previewDescriptions: previewDescriptions,
+    similarTitleIds: similarTitleIds,
+    withinHours: withinHours,
     readOfferForm: readOfferForm,
     isPurchaseForm: isPurchaseForm,
     findRaiseControl: findRaiseControl,
