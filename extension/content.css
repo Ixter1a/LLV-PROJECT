@@ -1,11 +1,8 @@
 #llv-shift-root {
   all: initial;
-  position: fixed;
-  z-index: 2147483646;
-  top: 16px;
-  right: 16px;
-  bottom: 16px;
-  width: min(320px, calc(100vw - 32px));
+  display: block;
+  width: 100%;
+  margin: 0 0 16px;
   color: #fff;
   font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
   line-height: 1.4;
@@ -13,96 +10,42 @@
 
 #llv-shift-root * { box-sizing: border-box; }
 
-#llv-shift-root.is-collapsed {
-  bottom: auto;
-  width: auto;
-}
-
-#llv-shift-root.is-collapsed .llv-panel { display: none; }
+#llv-shift-root.is-hidden .llv-panel { display: none; }
 
 #llv-shift-root .llv-panel {
-  height: 100%;
-  overflow: auto;
-  padding: 22px 20px;
-  border-radius: 18px;
+  padding: 16px 18px 18px;
+  border-radius: 16px;
   color: #fff;
-  background: rgba(0, 0, 0, 0.94);
+  background: #000;
   border: 1px solid rgba(255, 255, 255, 0.16);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 
 #llv-shift-root .llv-head {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 22px;
 }
-
-#llv-shift-root .llv-mark {
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-  flex: none;
-}
-
-#llv-shift-root .llv-mark img {
-  width: 72%;
-  height: 72%;
-  object-fit: contain;
-  position: relative;
-  z-index: 1;
-}
-
-#llv-shift-root .llv-fallback {
-  position: absolute;
-  width: 12px;
-  height: 18px;
-  background: #fff;
-  opacity: 0;
-  clip-path: polygon(62% 0, 100% 0, 46% 42%, 74% 42%, 12% 100%, 34% 52%, 4% 52%);
-}
-
-#llv-shift-root .llv-mark.use-fallback .llv-fallback { opacity: 1; }
-
-#llv-shift-root .llv-body,
-#llv-shift-root .llv-commands,
-#llv-shift-root .llv-work { display: grid; gap: 12px; }
-
-#llv-shift-root .llv-commands[hidden],
-#llv-shift-root .llv-work[hidden],
-#llv-shift-root .llv-tab[hidden] { display: none; }
 
 #llv-shift-root .llv-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
-  letter-spacing: -0.03em;
 }
 
-#llv-shift-root .llv-kicker {
-  margin: 8px 0 0;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 13px;
+#llv-shift-root .llv-menu { margin-left: auto; font-size: 18px; letter-spacing: 0.08em; }
+
+#llv-shift-root .llv-menu-pop {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 6px;
 }
 
-#llv-shift-root .llv-name,
-#llv-shift-root .llv-field input,
-#llv-shift-root .llv-field textarea,
-#llv-shift-root .llv-btn,
-#llv-shift-root .llv-cmd,
-#llv-shift-root .llv-link,
-#llv-shift-root .llv-tab {
-  font: inherit;
-  color: #fff;
-}
+#llv-shift-root .llv-menu-pop[hidden],
+#llv-shift-root .llv-work[hidden],
+#llv-shift-root .llv-show[hidden],
+#llv-shift-root .llv-dialog[hidden] { display: none; }
 
+#llv-shift-root .llv-search,
 #llv-shift-root .llv-name,
 #llv-shift-root .llv-field input,
 #llv-shift-root .llv-field textarea {
@@ -110,20 +53,54 @@
   border: 1px solid rgba(255, 255, 255, 0.16);
   border-radius: 10px;
   background: #000;
+  color: #fff;
   padding: 10px 12px;
+  font: inherit;
 }
 
-#llv-shift-root .llv-name { display: none; }
+#llv-shift-root .llv-search { display: block; margin-top: 12px; }
+
+#llv-shift-root .llv-name { display: none; margin-bottom: 8px; }
 
 #llv-shift-root.show-name .llv-name { display: block; }
 
+#llv-shift-root .llv-shift-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+#llv-shift-root .llv-status {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 13px;
+}
+
+#llv-shift-root .llv-commands,
+#llv-shift-root .llv-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-top: 12px;
+}
+
+#llv-shift-root .llv-spacer { margin-left: auto; }
+
+#llv-shift-root .llv-btn,
+#llv-shift-root .llv-cmd,
+#llv-shift-root .llv-link,
+#llv-shift-root .llv-show {
+  font: inherit;
+  cursor: pointer;
+}
+
 #llv-shift-root .llv-btn,
 #llv-shift-root .llv-cmd {
-  width: 100%;
   border-radius: 10px;
-  padding: 12px 14px;
-  text-align: left;
-  cursor: pointer;
+  padding: 8px 12px;
 }
 
 #llv-shift-root .llv-btn {
@@ -136,52 +113,69 @@
 #llv-shift-root .llv-cmd {
   border: 1px solid rgba(255, 255, 255, 0.22);
   background: transparent;
+  color: #fff;
+}
+
+#llv-shift-root .llv-danger {
+  color: #ffb4b4;
+  border-color: rgba(255, 180, 180, 0.45);
 }
 
 #llv-shift-root .llv-link,
-#llv-shift-root .llv-tab {
+#llv-shift-root .llv-show {
   border: 0;
   background: transparent;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.78);
   padding: 0;
-  cursor: pointer;
 }
 
-#llv-shift-root .llv-hide { margin-left: auto; }
-
-#llv-shift-root .llv-tab {
-  border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: 12px;
-  background: #000;
-  color: #fff;
-  padding: 12px 14px;
+#llv-shift-root .llv-show {
+  color: #111;
+  text-decoration: underline;
+  margin: 8px 0;
 }
 
-#llv-shift-root .llv-status,
+#llv-shift-root .llv-kicker,
 #llv-shift-root .llv-note {
-  margin: 0;
+  margin: 8px 0 0;
   color: rgba(255, 255, 255, 0.72);
   font-size: 13px;
+}
+
+#llv-shift-root .llv-dialog {
+  position: fixed;
+  z-index: 2147483646;
+  left: 50%;
+  top: 16%;
+  transform: translateX(-50%);
+  width: min(420px, calc(100vw - 32px));
+  padding: 18px;
+  border-radius: 16px;
+  background: #000;
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  display: grid;
+  gap: 12px;
 }
 
 #llv-shift-root .llv-field { display: grid; gap: 6px; }
 #llv-shift-root .llv-field span { color: rgba(255, 255, 255, 0.72); font-size: 13px; }
 #llv-shift-root .llv-field textarea { min-height: 72px; resize: vertical; }
 
-#llv-shift-root .llv-check {
-  display: flex;
-  gap: 10px;
-  align-items: flex-start;
-  color: #fff;
-  font-size: 14px;
-}
-
 #llv-shift-root .llv-pair {
   display: grid;
-  gap: 4px;
+  gap: 2px;
   margin: 0;
-  padding-top: 10px;
+  padding-top: 8px;
   border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 #llv-shift-root .llv-pair span:last-child { color: rgba(255, 255, 255, 0.72); }
+
+.tc-item.llv-filtered { display: none; }
+
+.llv-row-check {
+  margin: 0 8px 0 0;
+  accent-color: #000;
+  vertical-align: middle;
+}

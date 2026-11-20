@@ -207,45 +207,56 @@
     if (still) watch();
   }
 
+  function place(node) {
+    var table = document.querySelector(".showcase-has-actions, .showcase-table");
+    if (table && table.parentNode) {
+      table.parentNode.insertBefore(node, table);
+      return;
+    }
+    var main = document.querySelector("main, .content, #content");
+    if (main) main.insertBefore(node, main.firstChild);
+    else document.body.insertBefore(node, document.body.firstChild);
+  }
+
   function mount() {
     root = document.createElement("div");
     root.id = "llv-shift-root";
     root.innerHTML =
-      '<div class="llv-panel">' +
+      '<section class="llv-panel">' +
         '<div class="llv-head">' +
-          '<div class="llv-mark">' +
-            '<img alt="" width="42" height="42" />' +
-            '<span class="llv-fallback" aria-hidden="true"></span>' +
-          '</div>' +
-          '<div class="llv-title">LLV</div>' +
-          '<button class="llv-link llv-hide" type="button">Скрыть</button>' +
+          '<div class="llv-title">Управление лотами</div>' +
+          '<button class="llv-link llv-menu" type="button" aria-label="Ещё">⋮</button>' +
         '</div>' +
-        '<div class="llv-body">' +
+        '<div class="llv-menu-pop" hidden>' +
+          '<button class="llv-link" type="button" data-act="hide">Скрыть панель</button>' +
+        '</div>' +
+        '<input class="llv-search" type="search" placeholder="Поиск лота или раздела" autocomplete="off" />' +
+        '<div class="llv-shift-row">' +
           '<input class="llv-name" type="text" maxlength="64" placeholder="Имя на FunPay" autocomplete="off" />' +
           '<button class="llv-btn llv-shift" type="button">Начать смену</button>' +
           '<div class="llv-status"></div>' +
-          '<div class="llv-commands"></div>' +
-          '<div class="llv-work" hidden></div>' +
         '</div>' +
-      '</div>' +
-      '<button class="llv-tab" type="button" hidden>LLV</button>';
-    document.documentElement.appendChild(root);
-    var image = root.querySelector("img");
-    image.src = chrome.runtime.getURL("icons/icon.png");
-    image.addEventListener("error", function () {
-      root.querySelector(".llv-mark").classList.add("use-fallback");
-    });
+        '<div class="llv-commands"></div>' +
+        '<div class="llv-work" hidden></div>' +
+      '</section>' +
+      '<button class="llv-show" type="button" hidden>Показать управление лотами</button>';
+    place(root);
     button = root.querySelector(".llv-shift");
     nameInput = root.querySelector(".llv-name");
     statusNode = root.querySelector(".llv-status");
     button.addEventListener("click", onClick);
-    root.querySelector(".llv-hide").addEventListener("click", function () {
-      root.classList.add("is-collapsed");
-      root.querySelector(".llv-tab").hidden = false;
+    root.querySelector(".llv-menu").addEventListener("click", function () {
+      var menu = root.querySelector(".llv-menu-pop");
+      menu.hidden = !menu.hidden;
     });
-    root.querySelector(".llv-tab").addEventListener("click", function () {
-      root.classList.remove("is-collapsed");
-      root.querySelector(".llv-tab").hidden = true;
+    root.querySelector("[data-act='hide']").addEventListener("click", function () {
+      root.classList.add("is-hidden");
+      root.querySelector(".llv-menu-pop").hidden = true;
+      root.querySelector(".llv-show").hidden = false;
+    });
+    root.querySelector(".llv-show").addEventListener("click", function () {
+      root.classList.remove("is-hidden");
+      root.querySelector(".llv-show").hidden = true;
     });
     nameInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") onClick();

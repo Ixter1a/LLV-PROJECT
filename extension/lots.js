@@ -257,6 +257,40 @@
     return submitForm({ action: loaded.form.action, method: loaded.form.method, fields: fields }, fetchImpl);
   }
 
+  function rowById(doc, id) {
+    var safe = String(id || "").replace(/'/g, "");
+    if (!safe) return null;
+    return doc.querySelector(".tc-item[data-offer='" + safe + "']");
+  }
+
+  function clickRowAction(row, action) {
+    if (!row) return { ok: false, error: "Лот не найден на странице" };
+    var node = row.querySelector("[data-action='" + action + "']");
+    if (!node) {
+      var pattern = {
+        activate: /включ|актив/i,
+        deactivate: /выключ|деактив/i,
+        delete: /удал/i
+      }[action];
+      var nodes = row.querySelectorAll("a, button");
+      for (var i = 0; i < nodes.length; i += 1) {
+        var label = text(nodes[i]);
+        if (/купить/i.test(label)) continue;
+        if (pattern && pattern.test(label)) {
+          node = nodes[i];
+          break;
+        }
+      }
+    }
+    if (!node || /купить/i.test(text(node))) return { ok: false, error: "На странице нет этого действия" };
+    var anchor = node.closest && node.closest("a");
+    if (anchor) {
+      anchor.addEventListener("click", function (event) { event.preventDefault(); }, { once: true });
+    }
+    node.click();
+    return { ok: true };
+  }
+
   function raiseOnPage(doc) {
     var control = findRaiseControl(doc);
     if (!control) return { ok: false, error: "На странице нет кнопки «Поднять»" };
@@ -284,6 +318,8 @@
     cloneLot: cloneLot,
     editLot: editLot,
     eachLot: eachLot,
-    raiseOnPage: raiseOnPage
+    raiseOnPage: raiseOnPage,
+    rowById: rowById,
+    clickRowAction: clickRowAction
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
