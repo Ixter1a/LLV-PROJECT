@@ -230,7 +230,8 @@
         '<div class="llv-menu-pop" hidden>' +
           '<button class="llv-link" type="button" data-act="hide">Скрыть панель</button>' +
         '</div>' +
-        '<input class="llv-search" type="search" placeholder="Поиск лота или раздела" autocomplete="off" />' +
+        '<input class="llv-search" type="search" placeholder="Поиск лотов, раздел или название" autocomplete="off" />' +
+        '<input class="llv-file" type="file" accept="application/json,.json" hidden />' +
         '<div class="llv-shift-row">' +
           '<input class="llv-name" type="text" maxlength="64" placeholder="Имя на FunPay" autocomplete="off" />' +
           '<button class="llv-btn llv-shift" type="button">Начать смену</button>' +

@@ -51,28 +51,35 @@
     return "";
   }
 
+  function offerFrom(row, doc) {
+    var titleNode = row.querySelector(".tc-desc-text, .tc-title");
+    var priceNode = row.querySelector(".tc-price");
+    var priceMatch = text(priceNode).match(/(\d+(?:[.,]\d+)?)/);
+    return {
+      id: lotId(row),
+      title: text(titleNode),
+      price: priceMatch ? priceMatch[1].replace(",", ".") : "",
+      editHref: editHref(row),
+      nodeId: nodeFrom(doc)
+    };
+  }
+
   function collectLots(doc) {
     var session = readSession(doc);
     var rows = Array.prototype.slice.call(doc.querySelectorAll("a.tc-item, .tc-item"));
     var seen = {};
     var lots = [];
+    var foreign = [];
     rows.forEach(function (row) {
-      if (!isOwnRow(row, session.userId)) return;
+      if (row.closest && row.closest("#llv-shift-root")) return;
       var id = lotId(row);
       if (!id || seen[id]) return;
       seen[id] = true;
-      var titleNode = row.querySelector(".tc-desc-text, .tc-title");
-      var priceNode = row.querySelector(".tc-price");
-      var priceMatch = text(priceNode).match(/(\d+(?:[.,]\d+)?)/);
-      lots.push({
-        id: id,
-        title: text(titleNode),
-        price: priceMatch ? priceMatch[1].replace(",", ".") : "",
-        editHref: editHref(row),
-        nodeId: nodeFrom(doc)
-      });
+      var item = offerFrom(row, doc);
+      if (isOwnRow(row, session.userId)) lots.push(item);
+      else if (row.getAttribute("data-offer")) foreign.push(item);
     });
-    return { session: session, lots: lots };
+    return { session: session, lots: lots, foreign: foreign };
   }
 
   function editUrl(lot, loc) {
@@ -228,6 +235,17 @@
     return results;
   }
 
+  async function createFromTemplate(lot, loc, fetchImpl, changes) {
+    var loaded = await loadForm(lot, loc, fetchImpl);
+    if (!loaded.ok) return loaded;
+    var fields = withoutOfferId(loaded.form.fields);
+    var next = changes || {};
+    if (next.title && loaded.form.titleField) fields = setField(fields, loaded.form.titleField.name, next.title);
+    if (next.price && loaded.form.priceField) fields = setField(fields, loaded.form.priceField.name, String(next.price));
+    if (next.description && loaded.form.descField) fields = setField(fields, loaded.form.descField.name, next.description);
+    return submitForm({ action: loaded.form.action, method: loaded.form.method, fields: fields }, fetchImpl);
+  }
+
   async function cloneLot(lot, loc, fetchImpl, suffix) {
     var loaded = await loadForm(lot, loc, fetchImpl);
     if (!loaded.ok) return loaded;
@@ -316,6 +334,7 @@
     withoutOfferId: withoutOfferId,
     loadForm: loadForm,
     cloneLot: cloneLot,
+    createFromTemplate: createFromTemplate,
     editLot: editLot,
     eachLot: eachLot,
     raiseOnPage: raiseOnPage,
