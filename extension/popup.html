@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLV · Смены</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <div class="mark">
+        <img src="icons/icon.png" alt="" width="42" height="42" />
+        <span class="fallback" aria-hidden="true"></span>
+      </div>
+      <div>
+        <h1>Смены FunPay</h1>
+        <p>Ключи Supabase для отправки смен</p>
+      </div>
+    </div>
+    <label>URL проекта
+      <input id="url" type="url" placeholder="https://YOUR_PROJECT_REF.supabase.co" autocomplete="off" />
+    </label>
+    <label>Anon key
+      <input id="key" type="password" placeholder="YOUR_SUPABASE_ANON_KEY" autocomplete="off" />
+    </label>
+    <div class="actions">
+      <button id="save" type="button">Сохранить</button>
+      <button id="flush" type="button" class="quiet">Отправить очередь</button>
+    </div>
+    <p id="status" role="status"></p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
