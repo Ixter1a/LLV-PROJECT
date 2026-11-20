@@ -3,6 +3,7 @@ var QUEUE_KEY = "queue";
 var SEEN_KEY = "seen";
 var SETTINGS_KEY = "settings";
 var ERROR_KEY = "lastError";
+var LEDGER_KEY = "ledger";
 
 function storageGet(keys) {
   return chrome.storage.local.get(keys);
@@ -10,6 +11,10 @@ function storageGet(keys) {
 
 function storageSet(value) {
   return chrome.storage.local.set(value);
+}
+
+function emptyLedger() {
+  return { workers: [], shifts: [], sales: [] };
 }
 
 function isPlaceholder(value) {
@@ -21,7 +26,8 @@ function isPlaceholder(value) {
 function configured(settings) {
   if (!settings) return false;
   if (isPlaceholder(settings.url) || isPlaceholder(settings.key)) return false;
-  return /^https:\/\//i.test(settings.url);
+  if (/^https:\/\//i.test(settings.url)) return true;
+  return /^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?$/i.test(settings.url);
 }
 
 function normalizeUrl(url) {
@@ -52,16 +58,38 @@ async function getSeen() {
   return data[SEEN_KEY] || [];
 }
 
+async function getLedger() {
+  var data = await storageGet(LEDGER_KEY);
+  return data[LEDGER_KEY] || emptyLedger();
+}
+
+function putById(list, row) {
+  var next = [];
+  var replaced = false;
+  (list || []).forEach(function (item) {
+    if (item.id === row.id) {
+      next.push(row);
+      replaced = true;
+    } else {
+      next.push(item);
+    }
+  });
+  if (!replaced) next.push(row);
+  return next;
+}
+
 async function publicState() {
   var settings = await getSettings();
   var shift = await getShift();
   var queue = await getQueue();
   var errorData = await storageGet(ERROR_KEY);
+  var ledger = await getLedger();
   return {
     ok: true,
     configured: configured(settings),
     pending: queue.length,
     shift: shift,
+    ledger: ledger,
     lastError: configured(settings) ? (errorData[ERROR_KEY] || null) : null
   };
 }
@@ -85,8 +113,9 @@ function request(settings, path, options) {
     }
     if (!response.ok) {
       return response.text().then(function (body) {
-        var error = new Error(messageForStatus(response.status, body));
+        var error = new Error(messageForStatus(response.status));
         error.status = response.status;
+        error.detail = String(body || "").slice(0, 180);
         throw error;
       });
     }
@@ -98,18 +127,42 @@ function request(settings, path, options) {
   });
 }
 
-function messageForStatus(status, body) {
+function messageForStatus(status) {
   if (status === 401 || status === 403) return "Supabase отклонил ключ";
   if (status >= 500) return "Supabase временно недоступен";
-  var text = String(body || "").replace(/\s+/g, " ").slice(0, 140);
-  return text ? "Ошибка записи в Supabase" : "Ошибка записи в Supabase";
+  return "Ошибка записи в Supabase";
 }
 
-async function upsertWorker(settings, name) {
+async function relinkWorker(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) return;
+  var ledger = await getLedger();
+  var seenWorker = {};
+  ledger.workers = ledger.workers.filter(function (worker) {
+    if (worker.id === fromId) worker.id = toId;
+    if (seenWorker[worker.id]) return false;
+    seenWorker[worker.id] = true;
+    return true;
+  });
+  ledger.shifts.forEach(function (shift) {
+    if (shift.worker_id === fromId) shift.worker_id = toId;
+  });
+  ledger.sales.forEach(function (sale) {
+    if (sale.worker_id === fromId) sale.worker_id = toId;
+  });
+  var shift = await getShift();
+  if (shift && shift.workerId === fromId) shift.workerId = toId;
+  var queue = await getQueue();
+  queue.forEach(function (item) {
+    if (item.workerId === fromId) item.workerId = toId;
+  });
+  await storageSet({ ledger: ledger, shift: shift, queue: queue });
+}
+
+async function upsertWorker(settings, name, localId) {
   var rows = await request(settings, "workers?on_conflict=name", {
     method: "POST",
     prefer: "resolution=merge-duplicates,return=representation",
-    body: { name: name }
+    body: { id: localId, name: name }
   });
   if (rows && rows[0] && rows[0].id) return rows[0].id;
   var found = await request(settings, "workers?select=id&name=eq." + encodeURIComponent(name), {
@@ -122,8 +175,9 @@ async function upsertWorker(settings, name) {
 
 async function sendItem(settings, item, workerIds) {
   if (item.kind === "shift_start") {
-    var workerId = await upsertWorker(settings, item.workerName);
+    var workerId = workerIds[item.workerName] || await upsertWorker(settings, item.workerName, item.workerId);
     workerIds[item.workerName] = workerId;
+    await relinkWorker(item.workerId, workerId);
     try {
       await request(settings, "shifts?on_conflict=id", {
         method: "POST",
@@ -146,13 +200,15 @@ async function sendItem(settings, item, workerIds) {
     return;
   }
   if (item.kind === "sale") {
-    var saleWorker = workerIds[item.workerName] || await upsertWorker(settings, item.workerName);
+    var saleWorker = workerIds[item.workerName] || item.workerId || await upsertWorker(settings, item.workerName, item.workerId);
     workerIds[item.workerName] = saleWorker;
+    await relinkWorker(item.workerId, saleWorker);
     try {
       await request(settings, "sales?on_conflict=source_key", {
         method: "POST",
         prefer: "resolution=ignore-duplicates,return=minimal",
         body: {
+          id: item.saleId,
           worker_id: saleWorker,
           shift_id: item.shiftId,
           count: item.count,
@@ -179,30 +235,46 @@ async function sendItem(settings, item, workerIds) {
 async function flush() {
   var settings = await getSettings();
   if (!configured(settings)) return publicState();
-  var queue = await getQueue();
   var workerIds = {};
-  var index = 0;
-  try {
-    for (; index < queue.length; index += 1) {
-      await sendItem(settings, queue[index], workerIds);
+  var guard = 0;
+  while (guard < 50) {
+    guard += 1;
+    var queue = await getQueue();
+    if (!queue.length) {
+      await storageSet({ lastError: null });
+      break;
     }
-    await storageSet({ queue: [], lastError: null });
-  } catch (error) {
-    var message = /fetch|network|Failed/i.test(error.message || "")
-      ? "Нет связи с Supabase"
-      : (error.message || "Нет связи с Supabase");
-    await storageSet({
-      queue: queue.slice(index),
-      lastError: message
+    var item = queue[0];
+    try {
+      await sendItem(settings, item, workerIds);
+    } catch (error) {
+      var message = /fetch|network|Failed/i.test(error.message || "")
+        ? "Нет связи с Supabase"
+        : (error.message || "Нет связи с Supabase");
+      await storageSet({ lastError: message });
+      break;
+    }
+    var fresh = await getQueue();
+    var removed = false;
+    var next = [];
+    fresh.forEach(function (queued) {
+      if (!removed && queued.id === item.id) {
+        removed = true;
+        return;
+      }
+      next.push(queued);
     });
+    await storageSet({ queue: next, lastError: null });
   }
   return publicState();
 }
 
 async function enqueue(item) {
+  item.id = item.id || crypto.randomUUID();
   var queue = await getQueue();
   queue.push(item);
   await storageSet({ queue: queue });
+  return item;
 }
 
 async function startShift(name) {
@@ -210,22 +282,32 @@ async function startShift(name) {
   if (!workerName) throw new Error("Нужно имя сотрудника");
   var current = await getShift();
   if (current && current.active) return publicState();
+  var workerId = crypto.randomUUID();
   var shift = {
     active: true,
     shiftId: crypto.randomUUID(),
     workerName: workerName,
-    workerId: null,
+    workerId: workerId,
     startedAt: new Date().toISOString(),
     endedAt: null,
     salesCount: 0,
     salesRub: 0,
     synced: false
   };
-  await storageSet({ shift: shift });
+  var ledger = await getLedger();
+  ledger.workers = putById(ledger.workers, { id: workerId, name: workerName, created_at: shift.startedAt });
+  ledger.shifts = putById(ledger.shifts, {
+    id: shift.shiftId,
+    worker_id: workerId,
+    started_at: shift.startedAt,
+    ended_at: null
+  });
+  await storageSet({ shift: shift, ledger: ledger });
   await enqueue({
     kind: "shift_start",
     shiftId: shift.shiftId,
     workerName: workerName,
+    workerId: workerId,
     startedAt: shift.startedAt
   });
   return flush();
@@ -236,7 +318,14 @@ async function endShift() {
   if (!shift || !shift.active) return publicState();
   shift.active = false;
   shift.endedAt = new Date().toISOString();
-  await storageSet({ shift: shift });
+  var ledger = await getLedger();
+  ledger.shifts = putById(ledger.shifts, {
+    id: shift.shiftId,
+    worker_id: shift.workerId,
+    started_at: shift.startedAt,
+    ended_at: shift.endedAt
+  });
+  await storageSet({ shift: shift, ledger: ledger });
   await enqueue({
     kind: "shift_end",
     shiftId: shift.shiftId,
@@ -248,23 +337,49 @@ async function endShift() {
 async function recordSale(sale) {
   var shift = await getShift();
   if (!shift || !shift.active) return publicState();
-  if (!sale || !sale.sourceKey || !(sale.count > 0) || sale.amountRub === null || sale.amountRub === undefined) {
+  if (!sale || !sale.sourceKey || !(Number(sale.count) > 0) || sale.amountRub === null || sale.amountRub === undefined) {
     return publicState();
   }
   var seen = await getSeen();
-  if (seen.indexOf(sale.sourceKey) !== -1) return publicState();
+  var queue = await getQueue();
+  var ledger = await getLedger();
+  var already = seen.indexOf(sale.sourceKey) !== -1 ||
+    queue.some(function (item) { return item.kind === "sale" && item.sourceKey === sale.sourceKey; }) ||
+    ledger.sales.some(function (row) { return row.source_key === sale.sourceKey; });
+  if (already) return publicState();
+  var count = Number(sale.count);
+  var amount = Math.round(Number(sale.amountRub) * 100) / 100;
+  var soldAt = sale.soldAt || new Date().toISOString();
+  var saleId = crypto.randomUUID();
   seen.push(sale.sourceKey);
-  shift.salesCount += Number(sale.count);
-  shift.salesRub = Math.round((Number(shift.salesRub) + Number(sale.amountRub)) * 100) / 100;
-  await storageSet({ seen: seen.slice(-2000), shift: shift });
-  await enqueue({
+  shift.salesCount += count;
+  shift.salesRub = Math.round((Number(shift.salesRub) + amount) * 100) / 100;
+  ledger.sales = putById(ledger.sales, {
+    id: saleId,
+    worker_id: shift.workerId,
+    shift_id: shift.shiftId,
+    count: count,
+    amount_rub: amount,
+    sold_at: soldAt,
+    source_key: sale.sourceKey
+  });
+  queue.push({
+    id: crypto.randomUUID(),
     kind: "sale",
+    saleId: saleId,
     shiftId: shift.shiftId,
     workerName: shift.workerName,
+    workerId: shift.workerId,
     sourceKey: sale.sourceKey,
-    count: Number(sale.count),
-    amountRub: Number(sale.amountRub),
-    soldAt: sale.soldAt || new Date().toISOString()
+    count: count,
+    amountRub: amount,
+    soldAt: soldAt
+  });
+  await storageSet({
+    seen: seen.slice(-2000),
+    shift: shift,
+    ledger: ledger,
+    queue: queue
   });
   return flush();
 }
@@ -283,20 +398,41 @@ function serialized(run) {
   return next;
 }
 
-chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-  var action = serialized(function () {
+function handleMessage(message) {
+  return serialized(function () {
     if (message && message.type === "startShift") return startShift(message.name);
     if (message && message.type === "endShift") return endShift();
     if (message && message.type === "sale") return recordSale(message.sale);
     if (message && message.type === "saveSettings") return saveSettings(message.url, message.key);
     if (message && message.type === "flush") return flush();
+    if (message && message.type === "ledger") return getLedger().then(function (ledger) { return { ok: true, ledger: ledger }; });
     return publicState();
   });
-  action.then(sendResponse).catch(function (error) {
+}
+
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  handleMessage(message).then(sendResponse).catch(function (error) {
     sendResponse({ ok: false, error: error.message || "Ошибка" });
   });
   return true;
 });
 
-chrome.runtime.onInstalled.addListener(function () { flush(); });
-chrome.runtime.onStartup.addListener(function () { flush(); });
+chrome.runtime.onMessageExternal.addListener(function (message, sender, sendResponse) {
+  if (!message || message.type !== "ledger") {
+    sendResponse({ ok: false });
+    return;
+  }
+  getLedger().then(function (ledger) {
+    sendResponse({ ok: true, ledger: ledger });
+  }).catch(function () {
+    sendResponse({ ok: false, ledger: emptyLedger() });
+  });
+  return true;
+});
+
+chrome.runtime.onInstalled.addListener(function () {
+  serialized(function () { return flush(); });
+});
+chrome.runtime.onStartup.addListener(function () {
+  serialized(function () { return flush(); });
+});

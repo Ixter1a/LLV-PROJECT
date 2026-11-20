@@ -5,3 +5,7 @@ window.LLV_CONFIG = {
   SUPABASE_URL: "https://YOUR_PROJECT_REF.supabase.co",
   SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY"
 };
+
+// Стабильный id расширения. Сайт спрашивает у него локальные смены,
+// когда ключи Supabase ещё не заданы.
+window.LLV_EXTENSION_ID = "ffdoafmionhacjkjjdfmapmhlhddbchm";

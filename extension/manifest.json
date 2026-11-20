@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
   "name": "LLV Смены FunPay",
-  "version": "1.0.0",
-  "description": "Кнопка смены на FunPay: читает видимые завершённые заказы и отправляет их в Supabase.",
+  "version": "1.1.0",
+  "description": "Смена на FunPay и правки своих лотов: поднять, копировать, заменить слово в названии.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApRb8nrXtll1y4PFrZGv/u+lpNCPu0ZMURe8O3sl5ift7AjYREXJQPMthc98nNRJ3ZjPjgA+nKPvI0BOTx+D7DcWsBiGwz2UbGlogt0xmU3Bia6UM9HBsmO3PoHzs+JPyLP7OCNRYGwUx53rZz34XN0nnU7Rm0ycamWSTti/t0cFnA5xsQ1lFyyjqYaNGI3VM9VxgAkl0uJcaXlO/wy+YA30Dorb9bmExwzHXz5C3mnVqBn8v+0omRrhzz2vu+7qqOELBoVEl4sZbDjjxpMdPCF4Dpz7v+n1fs3ZkexQ+PdzGwQE3kx4yX/2Ri759iTjPiAdPRL8Rn/vMRLG/JfDnIQIDAQAB",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
@@ -26,12 +27,19 @@
     "service_worker": "background.js"
   },
   "permissions": ["storage"],
+  "externally_connectable": {
+    "matches": [
+      "http://127.0.0.1/*",
+      "http://localhost/*",
+      "https://*.github.io/*"
+    ]
+  },
   "host_permissions": ["https://funpay.com/*"],
-  "optional_host_permissions": ["https://*.supabase.co/*", "https://*/*"],
+  "optional_host_permissions": ["https://*.supabase.co/*", "https://*/*", "http://127.0.0.1/*", "http://localhost/*"],
   "content_scripts": [
     {
       "matches": ["https://funpay.com/*"],
-      "js": ["order-parser.js", "content.js"],
+      "js": ["order-parser.js", "lots.js", "lots-ui.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

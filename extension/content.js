@@ -237,6 +237,7 @@
       if (event.key === "Enter") onClick();
     });
     paint();
+    if (window.LLVLotsUI) window.LLVLotsUI.attach(root);
   }
 
   function onClick() {

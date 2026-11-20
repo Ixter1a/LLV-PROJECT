@@ -2,6 +2,13 @@
   var PASSWORD = "LLVPASSWORD";
   var SESSION_KEY = "llv.gate";
   var config = window.LLV_CONFIG || {};
+  try {
+    var overrideUrl = sessionStorage.getItem("llv.supabase.url");
+    var overrideKey = sessionStorage.getItem("llv.supabase.key");
+    if (overrideUrl && overrideKey) {
+      config = { SUPABASE_URL: overrideUrl, SUPABASE_ANON_KEY: overrideKey };
+    }
+  } catch (error) { /* сессия может быть закрыта */ }
   var app = document.getElementById("app");
 
   function isPlaceholder(value) {
@@ -105,6 +112,51 @@
     return { rows: rows, history: history, totals: totals };
   }
 
+  function mergeRemote(remote, ledger) {
+    var data = {
+      workers: (remote.workers || []).slice(),
+      shifts: (remote.shifts || []).slice(),
+      sales: (remote.sales || []).slice()
+    };
+    if (!ledger) return data;
+    var workerIds = {};
+    var shiftIds = {};
+    var saleKeys = {};
+    data.workers.forEach(function (row) { workerIds[row.id] = true; });
+    data.shifts.forEach(function (row) { shiftIds[row.id] = true; });
+    data.sales.forEach(function (row) { if (row.source_key) saleKeys[row.source_key] = true; });
+    (ledger.workers || []).forEach(function (row) {
+      if (!workerIds[row.id]) data.workers.push(row);
+    });
+    (ledger.shifts || []).forEach(function (row) {
+      if (!shiftIds[row.id]) data.shifts.push(row);
+    });
+    (ledger.sales || []).forEach(function (row) {
+      if (row.source_key && saleKeys[row.source_key]) return;
+      data.sales.push(row);
+    });
+    return data;
+  }
+
+  function loadExtensionLedger() {
+    return new Promise(function (resolve) {
+      var runtime = window.chrome && window.chrome.runtime;
+      var extensionId = window.LLV_EXTENSION_ID;
+      if (!runtime || !runtime.sendMessage || !extensionId) {
+        resolve(null);
+        return;
+      }
+      try {
+        runtime.sendMessage(extensionId, { type: "ledger" }, function (response) {
+          if (runtime.lastError || !response || !response.ledger) resolve(null);
+          else resolve(response.ledger);
+        });
+      } catch (error) {
+        resolve(null);
+      }
+    });
+  }
+
   function supabaseBase() {
     return String(config.SUPABASE_URL || "").trim().replace(/\/+$/, "").replace(/\/rest\/v1$/, "");
   }
@@ -128,7 +180,7 @@
     return Promise.all([
       get("workers?select=id,name,created_at&order=name.asc"),
       get("shifts?select=id,worker_id,started_at,ended_at&order=started_at.desc"),
-      get("sales?select=id,worker_id,shift_id,count,amount_rub,sold_at&order=sold_at.desc")
+      get("sales?select=id,worker_id,shift_id,count,amount_rub,sold_at,source_key&order=sold_at.desc")
     ]).then(function (parts) {
       return { workers: parts[0], shifts: parts[1], sales: parts[2] };
     });
@@ -243,13 +295,17 @@
             '<div><h1>Смены</h1><p class="muted">FunPay · штуки, выручка и прибыль 10%</p></div>' +
           '</div>' +
           '<div class="top-actions">' +
-            '<button class="btn btn-quiet" type="button" id="refresh" data-testid="refresh">Обновить</button>' +
-            '<button class="btn btn-quiet" type="button" id="logout">Выйти</button>' +
+            '<button class="btn" type="button" id="refresh" data-testid="refresh">Обновить</button>' +
+            '<button class="text-btn" type="button" id="logout">Выйти</button>' +
           '</div>' +
         '</header>' +
         (meta.demo
-          ? '<p class="glass banner" data-testid="demo-banner">Демо-режим. Ключи Supabase не заданы — на экране примерные данные, запись никуда не уходит.</p>'
-          : '') +
+          ? '<p class="glass banner" data-testid="demo-banner">' +
+            (meta.local
+              ? "Смены с этого компьютера. Ключи Supabase не заданы, в базу они не ушли."
+              : "Демо-режим. Ключи Supabase не заданы — на экране пример, пока расширение ничего не записало.") +
+            "</p>"
+          : "") +
         (meta.error
           ? '<p class="glass banner" role="alert">Не удалось загрузить Supabase. Проверьте URL, anon key и что выполнен supabase/schema.sql.</p>'
           : '') +
@@ -297,11 +353,15 @@
 
   function showDashboard() {
     app.innerHTML = '<div class="shell"><p class="lede">Загрузка…</p></div>';
-    var source = demoMode()
-      ? Promise.resolve(window.LLV_DEMO)
-      : loadLive();
-    source.then(function (data) {
-      renderDashboard(aggregate(data), { demo: demoMode(), error: false });
+    Promise.all([demoMode() ? Promise.resolve(null) : loadLive(), loadExtensionLedger()]).then(function (parts) {
+      var ledger = parts[1];
+      var localHasRows = ledger && ((ledger.sales && ledger.sales.length) || (ledger.shifts && ledger.shifts.length));
+      if (demoMode()) {
+        var data = localHasRows ? ledger : window.LLV_DEMO;
+        renderDashboard(aggregate(data), { demo: true, local: !!localHasRows, error: false });
+        return;
+      }
+      renderDashboard(aggregate(mergeRemote(parts[0], ledger)), { demo: false, error: false });
     }).catch(function () {
       renderDashboard(aggregate({ workers: [], shifts: [], sales: [] }), { demo: false, error: true });
     });

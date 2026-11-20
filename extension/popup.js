@@ -41,7 +41,10 @@ function refresh() {
 
 function ensureHost(url) {
   var clean = String(url || "").trim();
-  if (!/^https:\/\//i.test(clean) || !chrome.permissions || !chrome.permissions.request) {
+  if (!/^https:\/\//i.test(clean) && !/^http:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(clean)) {
+    return Promise.resolve();
+  }
+  if (!chrome.permissions || !chrome.permissions.request) {
     return Promise.resolve();
   }
   var origin;
