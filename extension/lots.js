@@ -405,6 +405,89 @@
     return { ok: true };
   }
 
+  function pageLocale(doc) {
+    var raw = doc.body ? (doc.body.getAttribute("data-app-data") || "") : "";
+    var match = raw.match(/"locale"\s*:\s*"([a-z]{2})"/i);
+    return match ? match[1].toLowerCase() : "ru";
+  }
+
+  function raiseRequestPath(doc) {
+    var locale = pageLocale(doc);
+    return (locale === "ru" ? "" : "/" + locale) + "/lots/raise";
+  }
+
+  function raiseTarget(doc, loc) {
+    var button = doc.querySelector(".js-lot-raise, .raise-box");
+    var gameId = button && button.getAttribute("data-game");
+    var nodeId = button && button.getAttribute("data-node");
+    if (gameId && nodeId) return { gameId: gameId, nodeId: nodeId };
+    var showcase = doc.querySelector("[data-game]");
+    gameId = showcase && showcase.getAttribute("data-game");
+    var path = (loc && loc.pathname) || "";
+    var fromPath = path.match(/\/(?:lots|chips)\/(\d+)/);
+    var section = (showcase && showcase.getAttribute("data-section")) || "";
+    var fromSection = section.match(/(?:lot|chip)-(\d+)/);
+    nodeId = (fromPath && fromPath[1]) || (fromSection && fromSection[1]) || "";
+    if (gameId && nodeId) return { gameId: gameId, nodeId: nodeId };
+    return null;
+  }
+
+  function raiseBody(gameId, nodeId, nodeIds) {
+    var parts = [
+      "game_id=" + encodeURIComponent(gameId),
+      "node_id=" + encodeURIComponent(nodeId)
+    ];
+    (nodeIds || []).forEach(function (id) {
+      if (id) parts.push("node_ids[]=" + encodeURIComponent(id));
+    });
+    return parts.join("&");
+  }
+
+  function nodeIdsFromModal(html) {
+    var parsed = new DOMParser().parseFromString(String(html || ""), "text/html");
+    var ids = [];
+    parsed.querySelectorAll("input[type='checkbox']").forEach(function (input) {
+      if (input.value) ids.push(input.value);
+    });
+    return ids;
+  }
+
+  async function postRaise(path, gameId, nodeId, nodeIds, fetchImpl) {
+    var response = await fetchImpl(path, {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        "Accept": "application/json, text/javascript, */*; q=0.01",
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: raiseBody(gameId, nodeId, nodeIds)
+    });
+    var data = {};
+    try { data = await response.json(); } catch (error) { data = {}; }
+    if (!response.ok) return { ok: false, error: "FunPay ответил " + response.status, path: path };
+    if (data.error) return { ok: false, error: data.msg || "Не удалось поднять", path: path };
+    return { ok: true, modal: data.modal || "", message: data.msg || "", path: path };
+  }
+
+  async function raiseByRequest(doc, fetchImpl, loc) {
+    var path = raiseRequestPath(doc);
+    var pageLoc = loc || (typeof location !== "undefined" ? location : { pathname: "" });
+    var target = raiseTarget(doc, pageLoc);
+    var fetcher = fetchImpl;
+    if (!fetcher && typeof fetch === "function") fetcher = fetch.bind(typeof globalThis !== "undefined" ? globalThis : this);
+    if (!target || !fetcher) {
+      var clicked = raiseOnPage(doc);
+      clicked.path = path;
+      return clicked;
+    }
+    var first = await postRaise(path, target.gameId, target.nodeId, null, fetcher);
+    if (!first.ok || !first.modal) return first;
+    var ids = nodeIdsFromModal(first.modal);
+    if (!ids.length) ids = [target.nodeId];
+    return postRaise(path, target.gameId, target.nodeId, ids, fetcher);
+  }
+
   root.LLVLots = {
     readSession: readSession,
     collectLots: collectLots,
@@ -425,6 +508,8 @@
     editLot: editLot,
     eachLot: eachLot,
     raiseOnPage: raiseOnPage,
+    raiseRequestPath: raiseRequestPath,
+    raiseByRequest: raiseByRequest,
     rowById: rowById,
     clickRowAction: clickRowAction
   };

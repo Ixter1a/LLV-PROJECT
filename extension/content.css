@@ -360,17 +360,52 @@ html.llv-show-promo [class*="offer-promo"] { display: inline-flex; visibility: v
 
 #llv-settings nav button.is-on { background: #fff; color: #000; }
 
-#llv-settings .llv-set-main { display: grid; align-content: start; justify-items: start; gap: 12px; padding: 16px 18px 24px; }
+#llv-settings .llv-set-main {
+  display: grid;
+  align-content: start;
+  justify-items: stretch;
+  gap: 14px;
+  padding: 18px 20px 28px;
+}
+
+#llv-settings .llv-set-card {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  padding: 14px 16px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: #0c0c0c;
+}
+
+#llv-settings .llv-set-card h3 { margin: 0; font-size: 15px; font-weight: 650; }
+
+#llv-settings .llv-set-card.is-disabled { opacity: 0.78; }
+
 #llv-settings .llv-set-row { display: grid; justify-items: start; gap: 4px; }
 
-#llv-settings h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+#llv-settings .llv-set-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+
+#llv-settings h2 { margin: 0; font-size: 18px; font-weight: 600; }
 
 #llv-settings .llv-set-note { margin: 0; color: rgba(255, 255, 255, 0.72); font-size: 13px; }
 
 #llv-settings .llv-set-toggle {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   align-items: center;
+  width: fit-content;
+  max-width: 100%;
+}
+
+#llv-settings .llv-set-toggle span { line-height: 1.3; }
+
+#llv-settings .llv-set-toggle input {
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  flex: 0 0 auto;
+  accent-color: #fff;
 }
 
 #llv-settings .llv-set-toggle.is-disabled { color: rgba(255, 255, 255, 0.45); }
@@ -378,7 +413,7 @@ html.llv-show-promo [class*="offer-promo"] { display: inline-flex; visibility: v
 #llv-settings .llv-set-field { display: grid; gap: 6px; }
 #llv-settings .llv-set-field span { color: rgba(255, 255, 255, 0.72); font-size: 13px; }
 
-#llv-settings input,
+#llv-settings input:not([type="checkbox"]),
 #llv-settings textarea,
 #llv-settings select {
   width: 100%;
@@ -408,4 +443,5 @@ html.llv-show-promo [class*="offer-promo"] { display: inline-flex; visibility: v
 @media (max-width: 720px) {
   #llv-settings .llv-set-body { grid-template-columns: 1fr; }
   #llv-settings nav { border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.16); }
+  #llv-settings .llv-set-pair { grid-template-columns: 1fr; }
 }

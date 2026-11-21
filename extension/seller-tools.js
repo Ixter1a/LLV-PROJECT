@@ -190,8 +190,11 @@
           return;
         }
         quietNoted = false;
-        var result = root.LLVLots.raiseOnPage(document);
-        if (settings.raiseNotice) toast(result.ok ? "Раздел: поднято" : (result.error || "Не удалось поднять"));
+        var raise = root.LLVLots.raiseByRequest || root.LLVLots.raiseOnPage;
+        Promise.resolve(raise(document)).then(function (result) {
+          if (!settings.raiseNotice || !result) return;
+          toast(result.ok ? (result.message || "Раздел: поднято") : (result.error || "Не удалось поднять"));
+        });
       }, minutes * 60000);
     }
 
