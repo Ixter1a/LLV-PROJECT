@@ -121,6 +121,7 @@
   }
 
   function paint() {
+    if (!root) return;
     var active = !!(state.shift && state.shift.active);
     root.classList.toggle("is-active", active);
     button.textContent = active ? "Завершить смену" : "Начать смену";
@@ -233,18 +234,26 @@
     if (still) watch();
   }
 
+  function sellerOffers() {
+    var named = document.querySelector(".showcase-has-actions, .showcase-table");
+    if (named && !(named.closest && named.closest("#llv-shift-root"))) return named;
+    return null;
+  }
+
   function place(node) {
-    var table = document.querySelector(".showcase-has-actions, .showcase-table");
-    if (table && table.parentNode) {
-      table.parentNode.insertBefore(node, table);
-      return;
+    var table = sellerOffers();
+    if (!table || !table.parentNode) return false;
+    var anchor = table;
+    var parent = table.parentElement;
+    if (parent && parent.parentNode && /\btable-responsive\b/.test(parent.className || "")) {
+      anchor = parent;
     }
-    var main = document.querySelector("main, .content, #content");
-    if (main) main.insertBefore(node, main.firstChild);
-    else document.body.insertBefore(node, document.body.firstChild);
+    anchor.parentNode.insertBefore(node, anchor);
+    return true;
   }
 
   function mount() {
+    if (document.getElementById("llv-shift-root") || !sellerOffers()) return;
     root = document.createElement("div");
     root.id = "llv-shift-root";
     root.innerHTML =
@@ -269,7 +278,10 @@
         '<div class="llv-work" hidden></div>' +
       '</section>' +
       '<button class="llv-show" type="button" hidden>Показать управление лотами</button>';
-    place(root);
+    if (!place(root)) {
+      root = null;
+      return;
+    }
     button = root.querySelector(".llv-shift");
     nameInput = root.querySelector(".llv-name");
     statusNode = root.querySelector(".llv-status");
@@ -325,7 +337,11 @@
     });
   }
 
+  if (window.LLVSeller) window.LLVSeller.attach(null);
   mount();
+  if (document.documentElement) {
+    new MutationObserver(function () { mount(); }).observe(document.documentElement, { childList: true, subtree: true });
+  }
   chrome.runtime.sendMessage({ type: "getState" }, function (next) {
     if (chrome.runtime.lastError) return;
     applyState(next);

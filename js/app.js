@@ -109,7 +109,73 @@
       sum.shifts += row.shifts;
       return sum;
     }, { count: 0, revenue: 0, net: 0, shifts: 0 });
-    return { rows: rows, history: history, totals: totals };
+    var nameById = {};
+    workers.forEach(function (worker) { nameById[worker.id] = worker.name; });
+    var salesRows = sales.map(function (sale) {
+      var revenue = Number(sale.amount_rub) || 0;
+      return {
+        soldAt: sale.sold_at,
+        day: dayKey(sale.sold_at),
+        name: nameById[sale.worker_id] || "—",
+        count: Number(sale.count) || 0,
+        revenue: revenue,
+        net: netOf(revenue)
+      };
+    }).filter(function (sale) { return sale.day; });
+    salesRows.sort(function (a, b) { return new Date(b.soldAt) - new Date(a.soldAt); });
+    var dayMap = {};
+    salesRows.forEach(function (sale) {
+      if (!dayMap[sale.day]) dayMap[sale.day] = { day: sale.day, count: 0, revenue: 0, net: 0 };
+      dayMap[sale.day].count += sale.count;
+      dayMap[sale.day].revenue += sale.revenue;
+      dayMap[sale.day].net += sale.net;
+    });
+    var days = Object.keys(dayMap).map(function (key) { return dayMap[key]; });
+    days.sort(function (a, b) { return a.day < b.day ? 1 : -1; });
+    return { rows: rows, history: history, totals: totals, salesRows: salesRows, days: days };
+  }
+
+  function two(value) {
+    return (value < 10 ? "0" : "") + value;
+  }
+
+  function dayKey(iso) {
+    var date = new Date(iso);
+    if (isNaN(date.getTime())) return "";
+    return date.getUTCFullYear() + "-" + two(date.getUTCMonth() + 1) + "-" + two(date.getUTCDate());
+  }
+
+  function formatDay(key) {
+    var parts = String(key || "").split("-");
+    if (parts.length !== 3) return "—";
+    var date = new Date(Date.UTC(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2])));
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "numeric",
+      month: "short",
+      timeZone: "UTC"
+    }).format(date);
+  }
+
+  function formatSaleWhen(iso) {
+    if (!iso) return "—";
+    return new Intl.DateTimeFormat("ru-RU", {
+      day: "numeric",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZone: "UTC"
+    }).format(new Date(iso));
+  }
+
+  function chartBars(items, labelOf) {
+    var max = items.reduce(function (peak, item) { return Math.max(peak, item.revenue); }, 0);
+    if (!items.length) return "<p class='note'>Продаж пока нет</p>";
+    return items.map(function (item) {
+      var width = max ? Math.max(4, Math.round(item.revenue / max * 100)) : 0;
+      return '<div class="chart-row"><span class="chart-label">' + escapeHtml(labelOf(item)) +
+        '</span><span class="chart-track"><span class="chart-bar" style="width:' + width +
+        '%"></span></span><span class="chart-value">' + formatRub(item.revenue) + "</span></div>";
+    }).join("");
   }
 
   function mergeRemote(remote, ledger) {
@@ -313,6 +379,54 @@
           '<article class="glass metric"><span>Штуки</span><strong data-testid="total-count">' + formatCount(totals.count) + '</strong><small>продажи за все смены</small></article>' +
           '<article class="glass metric"><span>Выручка</span><strong data-testid="total-revenue">' + formatRub(totals.revenue) + '</strong><small>сумма заказов</small></article>' +
           '<article class="glass metric"><span>Прибыль 10%</span><strong data-testid="total-net">' + formatRub(totals.net) + '</strong><small>считается на сайте</small></article>' +
+        '</section>' +
+        '<div class="charts">' +
+          '<section class="glass section" data-testid="chart-days">' +
+            '<div class="section-head"><h2>Продажи по дням</h2><span>выручка</span></div>' +
+            chartBars(model.days.slice().reverse(), function (item) { return formatDay(item.day); }) +
+          '</section>' +
+          '<section class="glass section" data-testid="chart-workers">' +
+            '<div class="section-head"><h2>Продажи по сотрудникам</h2><span>выручка</span></div>' +
+            chartBars(model.rows, function (item) { return item.name; }) +
+          '</section>' +
+        '</div>' +
+        '<section class="glass section">' +
+          '<div class="section-head"><h2>Продажи</h2><span data-testid="sales-count">' + formatCount(model.salesRows.length) + '</span></div>' +
+          '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Продавец</th><th>Штуки</th><th>Рубли</th><th>Прибыль 10%</th></tr></thead><tbody>' +
+          (model.salesRows.map(function (sale) {
+            return "<tr data-testid='sale-row'>" +
+              cell("Дата", formatSaleWhen(sale.soldAt)) +
+              cell("Продавец", escapeHtml(sale.name)) +
+              cell("Штуки", formatCount(sale.count)) +
+              cell("Рубли", formatRub(sale.revenue)) +
+              cell("Прибыль 10%", formatRub(sale.net)) +
+              "</tr>";
+          }).join("") || '<tr><td colspan="5">Продаж пока нет</td></tr>') +
+          '<tr class="total" data-testid="sale-total">' +
+            cell("Дата", "Всего") +
+            cell("Продавец", "") +
+            cell("Штуки", formatCount(totals.count)) +
+            cell("Рубли", formatRub(totals.revenue)) +
+            cell("Прибыль 10%", formatRub(totals.net)) +
+          '</tr></tbody></table></div>' +
+        '</section>' +
+        '<section class="glass section">' +
+          '<div class="section-head"><h2>Итоги по дням</h2><span>' + formatCount(model.days.length) + '</span></div>' +
+          '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Штуки</th><th>Рубли</th><th>Прибыль 10%</th></tr></thead><tbody>' +
+          (model.days.map(function (day) {
+            return "<tr data-testid='day-row' data-day='" + escapeAttr(day.day) + "'>" +
+              cell("Дата", formatDay(day.day)) +
+              cell("Штуки", formatCount(day.count)) +
+              cell("Рубли", formatRub(day.revenue)) +
+              cell("Прибыль 10%", formatRub(day.net)) +
+              "</tr>";
+          }).join("") || '<tr><td colspan="4">Продаж пока нет</td></tr>') +
+          '<tr class="total" data-testid="day-total">' +
+            cell("Дата", "Всего") +
+            cell("Штуки", formatCount(totals.count)) +
+            cell("Рубли", formatRub(totals.revenue)) +
+            cell("Прибыль 10%", formatRub(totals.net)) +
+          '</tr></tbody></table></div>' +
         '</section>' +
         '<section class="glass section">' +
           '<div class="section-head"><h2>Сотрудники</h2><span>по выручке</span></div>' +

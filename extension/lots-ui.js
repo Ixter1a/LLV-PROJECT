@@ -160,7 +160,7 @@
       var dialog = document.createElement("div");
       dialog.className = "llv-dialog";
       dialog.innerHTML = html;
-      panelRoot.appendChild(dialog);
+      (panelRoot.querySelector(".llv-panel") || panelRoot).appendChild(dialog);
       var close = dialog.querySelector("[data-act='close']");
       if (close) close.addEventListener("click", function () { dialog.remove(); });
       return dialog;

@@ -32,22 +32,26 @@
     };
   }
 
+  var settings = defaults();
+  var raiseTimer = null;
+  var quietNoted = false;
+  var booted = false;
+
   function attach(panelRoot) {
-    if (!panelRoot || panelRoot.querySelector(".llv-more")) return;
-    var settings = defaults();
-    var raiseTimer = null;
-    var quietNoted = false;
+    var more = null;
+    if (panelRoot && !panelRoot.querySelector(".llv-more")) {
     var box = document.createElement("div");
     box.className = "llv-more-wrap";
     box.innerHTML =
       '<button type="button" class="llv-link llv-more-open">Ещё команды</button>' +
       '<div class="llv-more" hidden></div>';
     panelRoot.querySelector(".llv-panel").appendChild(box);
-    var more = box.querySelector(".llv-more");
+    more = box.querySelector(".llv-more");
     box.querySelector(".llv-more-open").addEventListener("click", function () {
       more.hidden = !more.hidden;
       if (!more.hidden) paintMore();
     });
+    }
 
     function storageGet(done) {
       var local = root.chrome && root.chrome.storage && root.chrome.storage.local;
@@ -69,10 +73,15 @@
     }
 
     function toast(text) {
-      var node = document.createElement("div");
+      var node = document.createElement("p");
       node.className = "llv-toast";
       node.textContent = text;
-      document.body.appendChild(node);
+      var card = document.querySelector("#llv-shift-root .llv-panel");
+      if (card) card.appendChild(node);
+      else {
+        var slot = document.querySelector("main, #content, .container") || document.body;
+        slot.appendChild(node);
+      }
       setTimeout(function () { node.remove(); }, 3500);
     }
 
@@ -401,6 +410,7 @@
     }
 
     function paintMore() {
+      if (!more) return;
       more.innerHTML = "";
       var offers = document.createElement("section");
       offers.innerHTML = "<p class='llv-kicker'>Предложения</p>";
@@ -662,6 +672,9 @@
       }));
       more.appendChild(look);
     }
+
+    if (booted) return;
+    booted = true;
 
     document.addEventListener("llv-raised", function () {
       if (settings.raiseNotice) toast("Раздел: поднято");
