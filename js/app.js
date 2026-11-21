@@ -383,50 +383,28 @@
         '<div class="charts">' +
           '<section class="glass section" data-testid="chart-days">' +
             '<div class="section-head"><h2>Продажи по дням</h2><span>выручка</span></div>' +
-            chartBars(model.days.slice().reverse(), function (item) { return formatDay(item.day); }) +
+            '<div id="day-chart-body">' + chartBars(model.days.slice().reverse(), function (item) { return formatDay(item.day); }) + '</div>' +
           '</section>' +
           '<section class="glass section" data-testid="chart-workers">' +
             '<div class="section-head"><h2>Продажи по сотрудникам</h2><span>выручка</span></div>' +
             chartBars(model.rows, function (item) { return item.name; }) +
           '</section>' +
         '</div>' +
-        '<section class="glass section">' +
-          '<div class="section-head"><h2>Продажи</h2><span data-testid="sales-count">' + formatCount(model.salesRows.length) + '</span></div>' +
-          '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Продавец</th><th>Штуки</th><th>Рубли</th><th>Прибыль 10%</th></tr></thead><tbody>' +
-          (model.salesRows.map(function (sale) {
-            return "<tr data-testid='sale-row'>" +
-              cell("Дата", formatSaleWhen(sale.soldAt)) +
-              cell("Продавец", escapeHtml(sale.name)) +
-              cell("Штуки", formatCount(sale.count)) +
-              cell("Рубли", formatRub(sale.revenue)) +
-              cell("Прибыль 10%", formatRub(sale.net)) +
-              "</tr>";
-          }).join("") || '<tr><td colspan="5">Продаж пока нет</td></tr>') +
-          '<tr class="total" data-testid="sale-total">' +
-            cell("Дата", "Всего") +
-            cell("Продавец", "") +
-            cell("Штуки", formatCount(totals.count)) +
-            cell("Рубли", formatRub(totals.revenue)) +
-            cell("Прибыль 10%", formatRub(totals.net)) +
-          '</tr></tbody></table></div>' +
+        '<section class="glass section" id="sales-analytics">' +
+          '<div class="section-head">' +
+            '<h2>Продажи</h2>' +
+            '<div class="sales-tools">' +
+              '<div class="worker-filter" data-testid="worker-filter">' + workerChips(model) + '</div>' +
+              '<button type="button" class="chip" id="group-worker" data-testid="group-worker">По сотрудникам</button>' +
+              '<span data-testid="sales-count">' + formatCount(model.salesRows.length) + '</span>' +
+            '</div>' +
+          '</div>' +
+          '<div class="sort-bar" data-testid="sales-sort">' + sortButtons() + '</div>' +
+          '<div class="table-wrap"><table class="sales-table"><thead><tr>' + sortHeaders() + '</tr></thead><tbody id="sales-body"></tbody></table></div>' +
         '</section>' +
-        '<section class="glass section">' +
-          '<div class="section-head"><h2>Итоги по дням</h2><span>' + formatCount(model.days.length) + '</span></div>' +
-          '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Штуки</th><th>Рубли</th><th>Прибыль 10%</th></tr></thead><tbody>' +
-          (model.days.map(function (day) {
-            return "<tr data-testid='day-row' data-day='" + escapeAttr(day.day) + "'>" +
-              cell("Дата", formatDay(day.day)) +
-              cell("Штуки", formatCount(day.count)) +
-              cell("Рубли", formatRub(day.revenue)) +
-              cell("Прибыль 10%", formatRub(day.net)) +
-              "</tr>";
-          }).join("") || '<tr><td colspan="4">Продаж пока нет</td></tr>') +
-          '<tr class="total" data-testid="day-total">' +
-            cell("Дата", "Всего") +
-            cell("Штуки", formatCount(totals.count)) +
-            cell("Рубли", formatRub(totals.revenue)) +
-            cell("Прибыль 10%", formatRub(totals.net)) +
-          '</tr></tbody></table></div>' +
+        '<section class="glass section" id="day-analytics">' +
+          '<div class="section-head"><h2>Итоги по дням</h2><span id="day-count">' + formatCount(model.days.length) + '</span></div>' +
+          '<div class="table-wrap"><table><thead><tr><th>Дата</th><th>Штуки</th><th>Рубли</th><th>Прибыль 10%</th></tr></thead><tbody id="day-body"></tbody></table></div>' +
         '</section>' +
         '<section class="glass section">' +
           '<div class="section-head"><h2>Сотрудники</h2><span>по выручке</span></div>' +
@@ -453,6 +431,199 @@
     document.getElementById("refresh").addEventListener("click", function () {
       showDashboard();
     });
+    bindSales(model);
+  }
+
+  function sortButtons() {
+    return [
+      ["date", "Дата"],
+      ["seller", "Продавец"],
+      ["pieces", "Штуки"],
+      ["rubles", "Рубли"],
+      ["net", "Прибыль 10%"]
+    ].map(function (pair) {
+      return '<button type="button" class="sort-btn" data-sort="' + pair[0] + '">' + pair[1] + "</button>";
+    }).join("");
+  }
+
+  function sortHeaders() {
+    return [
+      ["date", "Дата"],
+      ["seller", "Продавец"],
+      ["pieces", "Штуки"],
+      ["rubles", "Рубли"],
+      ["net", "Прибыль 10%"]
+    ].map(function (pair) {
+      return '<th><button type="button" class="sort-btn" data-sort="' + pair[0] + '">' + pair[1] + "</button></th>";
+    }).join("");
+  }
+
+  function workerChips(model) {
+    var names = [];
+    (model.rows || []).forEach(function (row) {
+      if (row.name && names.indexOf(row.name) === -1) names.push(row.name);
+    });
+    names.sort(function (a, b) { return a.localeCompare(b, "ru"); });
+    return '<button type="button" class="chip is-on" data-worker="">Все</button>' +
+      names.map(function (name) {
+        return '<button type="button" class="chip" data-worker="' + escapeAttr(name) + '">' + escapeHtml(name) + "</button>";
+      }).join("");
+  }
+
+  function bindSales(model) {
+    var view = { key: "date", dir: "desc", worker: "", grouped: false };
+    var body = document.getElementById("sales-body");
+    var countNode = document.querySelector("[data-testid='sales-count']");
+    var groupButton = document.getElementById("group-worker");
+
+    function sumOf(rows) {
+      return rows.reduce(function (sum, row) {
+        sum.count += row.count;
+        sum.revenue += row.revenue;
+        sum.net += row.net;
+        return sum;
+      }, { count: 0, revenue: 0, net: 0 });
+    }
+
+    function filtered() {
+      return model.salesRows.filter(function (sale) {
+        return !view.worker || sale.name === view.worker;
+      });
+    }
+
+    function grouped(rows) {
+      var map = {};
+      rows.forEach(function (sale) {
+        var row = map[sale.name];
+        if (!row) {
+          map[sale.name] = {
+            name: sale.name,
+            count: 0,
+            revenue: 0,
+            net: 0,
+            soldAt: sale.soldAt,
+            day: sale.day
+          };
+          row = map[sale.name];
+        }
+        row.count += sale.count;
+        row.revenue += sale.revenue;
+        row.net += sale.net;
+        if (new Date(sale.soldAt) > new Date(row.soldAt)) {
+          row.soldAt = sale.soldAt;
+          row.day = sale.day;
+        }
+      });
+      return Object.keys(map).map(function (name) { return map[name]; });
+    }
+
+    function compare(a, b) {
+      var dir = view.dir === "asc" ? 1 : -1;
+      var result = 0;
+      if (view.key === "seller") result = a.name.localeCompare(b.name, "ru");
+      else if (view.key === "pieces") result = a.count - b.count;
+      else if (view.key === "rubles") result = a.revenue - b.revenue;
+      else if (view.key === "net") result = a.net - b.net;
+      else result = new Date(a.soldAt) - new Date(b.soldAt);
+      if (!result) result = a.name.localeCompare(b.name, "ru");
+      if (!result) result = new Date(a.soldAt) - new Date(b.soldAt);
+      return result * dir;
+    }
+
+    function paintDays(rows) {
+      var dayMap = {};
+      rows.forEach(function (sale) {
+        if (!dayMap[sale.day]) dayMap[sale.day] = { day: sale.day, count: 0, revenue: 0, net: 0 };
+        dayMap[sale.day].count += sale.count;
+        dayMap[sale.day].revenue += sale.revenue;
+        dayMap[sale.day].net += sale.net;
+      });
+      var days = Object.keys(dayMap).map(function (key) { return dayMap[key]; });
+      days.sort(function (a, b) { return a.day < b.day ? 1 : -1; });
+      var totals = sumOf(rows);
+      var dayBody = document.getElementById("day-body");
+      var chart = document.getElementById("day-chart-body");
+      var dayCount = document.getElementById("day-count");
+      if (dayCount) dayCount.textContent = formatCount(days.length);
+      if (chart) chart.innerHTML = chartBars(days.slice().reverse(), function (item) { return formatDay(item.day); });
+      if (!dayBody) return;
+      dayBody.innerHTML =
+        (days.map(function (day) {
+          return "<tr data-testid='day-row' data-day='" + escapeAttr(day.day) + "'>" +
+            cell("Дата", formatDay(day.day)) +
+            cell("Штуки", formatCount(day.count)) +
+            cell("Рубли", formatRub(day.revenue)) +
+            cell("Прибыль 10%", formatRub(day.net)) +
+            "</tr>";
+        }).join("") || '<tr><td colspan="4">Продаж пока нет</td></tr>') +
+        '<tr class="total" data-testid="day-total">' +
+          cell("Дата", "Всего") +
+          cell("Штуки", formatCount(totals.count)) +
+          cell("Рубли", formatRub(totals.revenue)) +
+          cell("Прибыль 10%", formatRub(totals.net)) +
+        "</tr>";
+    }
+
+    function paint() {
+      var rows = filtered();
+      var shown = (view.grouped ? grouped(rows) : rows.slice()).sort(compare);
+      var totals = sumOf(rows);
+      var arrow = view.dir === "asc" ? "↑" : "↓";
+      document.querySelectorAll("#sales-analytics [data-sort]").forEach(function (button) {
+        var on = button.getAttribute("data-sort") === view.key;
+        button.classList.toggle("is-on", on);
+        button.setAttribute("aria-sort", on ? (view.dir === "asc" ? "ascending" : "descending") : "none");
+        var label = button.getAttribute("data-label") || button.textContent.replace(/[↑↓]\s*$/, "").trim();
+        button.setAttribute("data-label", label);
+        button.textContent = on ? label + " " + arrow : label;
+      });
+      countNode.textContent = formatCount(shown.length);
+      body.innerHTML =
+        (shown.map(function (sale) {
+          return "<tr data-testid='sale-row' data-seller='" + escapeAttr(sale.name) + "'>" +
+            cell("Дата", formatSaleWhen(sale.soldAt)) +
+            cell("Продавец", escapeHtml(sale.name)) +
+            cell("Штуки", formatCount(sale.count)) +
+            cell("Рубли", formatRub(sale.revenue)) +
+            cell("Прибыль 10%", formatRub(sale.net)) +
+            "</tr>";
+        }).join("") || '<tr><td colspan="5">Продаж пока нет</td></tr>') +
+        '<tr class="total" data-testid="sale-total">' +
+          cell("Дата", "Всего") +
+          cell("Продавец", view.worker ? escapeHtml(view.worker) : "") +
+          cell("Штуки", formatCount(totals.count)) +
+          cell("Рубли", formatRub(totals.revenue)) +
+          cell("Прибыль 10%", formatRub(totals.net)) +
+        "</tr>";
+      paintDays(rows);
+    }
+
+    document.getElementById("sales-analytics").addEventListener("click", function (event) {
+      var sort = event.target.closest("[data-sort]");
+      if (sort && document.getElementById("sales-analytics").contains(sort)) {
+        var key = sort.getAttribute("data-sort");
+        if (view.key === key) view.dir = view.dir === "asc" ? "desc" : "asc";
+        else {
+          view.key = key;
+          view.dir = key === "seller" ? "asc" : "desc";
+        }
+        paint();
+        return;
+      }
+      var chip = event.target.closest("[data-worker]");
+      if (!chip || !chip.closest("[data-testid='worker-filter']")) return;
+      view.worker = chip.getAttribute("data-worker") || "";
+      document.querySelectorAll("[data-testid='worker-filter'] .chip").forEach(function (button) {
+        button.classList.toggle("is-on", button === chip);
+      });
+      paint();
+    });
+    groupButton.addEventListener("click", function () {
+      view.grouped = !view.grouped;
+      groupButton.classList.toggle("is-on", view.grouped);
+      paint();
+    });
+    paint();
   }
 
   function escapeHtml(value) {

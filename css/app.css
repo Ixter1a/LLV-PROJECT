@@ -192,11 +192,40 @@ input[type="url"] {
 
 .section-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 16px;
-  align-items: baseline;
+  align-items: center;
   padding: 20px 16px 8px;
 }
+
+.sales-tools, .worker-filter, .sort-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.sort-bar { padding: 0 16px 8px; }
+
+.sort-btn, .chip {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  padding: 0;
+}
+
+th .sort-btn { font-size: 12px; font-weight: 560; }
+
+.sort-btn.is-on { color: #fff; }
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+}
+
+.chip.is-on { background: #fff; color: #000; }
 
 .section-head h2 {
   margin: 0;
@@ -277,6 +306,10 @@ tr.total td { font-weight: 600; }
 }
 
 .login-card .brand-mark { margin: 0 auto; }
+
+@media (min-width: 801px) {
+  .sort-bar { display: none; }
+}
 
 @media (max-width: 800px) {
   .app { padding: 36px 16px 64px; }
