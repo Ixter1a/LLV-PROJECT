@@ -186,22 +186,31 @@
     return svg;
   }
 
+  // Ядро тумблера: <label> со вложенным чекбоксом и треком. Оформление не
+  // тут, а в app.css — карточка снимает класс llv-app-switch и ведёт тумблер
+  // по классам llv-app-card-switch, поля и трек при этом остаются прежними.
+  function switchCore(on, change) {
+    var label = document.createElement("label");
+    var input = document.createElement("input");
+    input.type = "checkbox";
+    input.checked = !!on;
+    label.addEventListener("change", function (event) {
+      if (event.target === input) change(input.checked);
+    });
+    label.appendChild(input);
+    var track = el("span", "llv-app-track");
+    track.appendChild(el("i"));
+    label.appendChild(track);
+    return label;
+  }
+
   function toggleRow(label, on, change, hint) {
     // Строка — <label>: в Chrome клик по треку или подписи переключает
     // вложенный чекбокс сам, приходит одно событие change. Второй обработчик
     // click здесь не нужен — он только переключал бы тумблер дважды.
-    var row = el("label", "llv-app-switch");
-    var input = document.createElement("input");
-    input.type = "checkbox";
-    input.checked = !!on;
-    row.addEventListener("change", function (event) {
-      if (event.target === input) change(input.checked);
-    });
-    row.appendChild(input);
-    row.appendChild(el("span", "llv-app-switch-text", label));
-    var track = el("span", "llv-app-track");
-    track.appendChild(el("i"));
-    row.appendChild(track);
+    var row = switchCore(on, change);
+    row.className = "llv-app-switch";
+    row.insertBefore(el("span", "llv-app-switch-text", label), row.lastChild);
     if (hint) {
       var wrap = el("div", "llv-app-toggle-wrap");
       wrap.appendChild(row);
@@ -928,6 +937,32 @@
     main.appendChild(grid);
   }
 
+  // Появление карточки. Кадры задаёт JS, а не CSS: у анимации из таблицы
+  // стилей есть кадр «from» с opacity: 0, и недосчитанная анимация оставляет
+  // именно его — карточки выглядят пропавшими. Здесь же первый кадр при
+  // отказе сразу конечный, а если вкладка не на экране, анимация не заводится:
+  // в фоне браузер её не ведёт, и карточка осталась бы невидимой.
+  function appear(node, index) {
+    if (!node.animate || document.hidden) return;
+    try {
+      var rule = new KeyframeEffect(node, [{ transform: "translateY(6px)" }, { transform: "none" }], {
+        duration: 220,
+        delay: Math.min(index, 8) * 18,
+        easing: "ease"
+      });
+      var anim = node.animate(rule);
+      // Если анимация не дошла до конца (закрытая вкладка, сбой), карточка
+      // всё равно на месте: двигается только transform.
+      if (anim && anim.cancel) {
+        var clear = function () { node.style.transform = ""; };
+        anim.onfinish = clear;
+        anim.oncancel = clear;
+      }
+    } catch (error) {
+      node.style.transform = "";
+    }
+  }
+
   function paintCard(card, index) {
     // В реестре тумблер — это либо имя painters (widget:…), либо флаг настроек.
     // Сравнение с «widget:» отделяет одно от другого, чтобы обработчик
@@ -938,7 +973,7 @@
     var value = state ? state.on : false;
 
     var node = el("article", "llv-app-card");
-    node.style.animationDelay = (index * 18) + "ms";
+    appear(node, index);
     if (card.css) node.classList.add("llv-css-" + card.css);
 
     var top = el("div", "llv-app-card-top");
@@ -948,7 +983,7 @@
     top.appendChild(text);
 
     if (hasSwitch && !widget) {
-      var switchBox = toggleRow("", value, function (on) {
+      var switchBox = switchCore(value, function (on) {
         var changes = {};
         changes[card.key] = on;
         save(changes);
@@ -958,7 +993,6 @@
         repaint();
       });
       switchBox.className = "llv-app-card-switch";
-      switchBox.classList.remove("llv-app-switch");
       top.appendChild(switchBox);
       node.classList.toggle("is-off", !value);
     }
@@ -1229,6 +1263,8 @@
         fn();
       } catch (error) {
         if (root.console && console.error) console.error("LLV: " + name, error);
+        // Ошибку показываем на экране: иначе сбой выглядит как пустой раздел.
+        if (name === "render" || name === "repaint") toast("Сбой отрисовки: " + ((error && error.message) || error));
       }
     }
     var icon = document.getElementById("llv-app-mark");
@@ -1269,7 +1305,11 @@
     setInterval(readTopbar, 60000);
     // Вкладка снова на экране — проверяем, не поменяли ли настройки извне.
     document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) resyncFromStorage();
+      if (document.hidden) return;
+      // Вернулись на вкладку: у карточек мог остаться недосчитанный кадр
+      // появления. Перерисовываем, чтобы анимация началась заново.
+      render();
+      resyncFromStorage();
     });
   }
 
