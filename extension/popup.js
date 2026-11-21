@@ -1,6 +1,8 @@
 function openApp() {
   var url = chrome.runtime.getURL("app.html");
-  chrome.tabs.query({ url: url }, function (tabs) {
+  // Без «*» в конце Chrome не находит вкладку по полному адресу и открывает
+  // страницу заново при каждом нажатии на значок.
+  chrome.tabs.query({ url: url + "*" }, function (tabs) {
     var tab = tabs && tabs[0];
     if (tab) {
       chrome.tabs.update(tab.id, { active: true });

@@ -153,25 +153,30 @@
   root.__LLV_APP_BRIDGE__ = true;
 
   if (!root.chrome || !root.chrome.runtime || !root.chrome.runtime.onMessage) return;
-  root.chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    if (!message || message.type !== "llvApp") return;
-    var method = methods[message.fn];
-    if (!method) { sendResponse({ ok: false, error: "Неизвестное действие" }); return; }
-    var result;
-    try {
-      result = method(message.payload || {});
-    } catch (error) {
-      sendResponse({ ok: false, error: error.message || "Ошибка" });
-      return;
-    }
-    if (result && typeof result.then === "function") {
-      result.then(function (data) {
-        sendResponse({ ok: true, data: data });
-      }, function (error) {
+  try {
+    root.chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+      if (!message || message.type !== "llvApp") return;
+      var method = methods[message.fn];
+      if (!method) { sendResponse({ ok: false, error: "Неизвестное действие" }); return; }
+      var result;
+      try {
+        result = method(message.payload || {});
+      } catch (error) {
         sendResponse({ ok: false, error: (error && error.message) || "Ошибка" });
-      });
-      return true;
-    }
-    sendResponse({ ok: true, data: result });
-  });
+        return;
+      }
+      if (result && typeof result.then === "function") {
+        Promise.resolve(result).then(function (data) {
+          sendResponse({ ok: true, data: data });
+        }, function (error) {
+          sendResponse({ ok: false, error: (error && error.message) || "Ошибка" });
+        });
+        return true;
+      }
+      sendResponse({ ok: true, data: result });
+    });
+  } catch (error) {
+    // Слушатель уже стоял от прошлой инъекции — это нормально.
+    if (root.console) console.warn("LLV: мост уже подключён", error);
+  }
 })(typeof globalThis !== "undefined" ? globalThis : this);

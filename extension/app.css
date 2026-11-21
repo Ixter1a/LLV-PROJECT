@@ -158,6 +158,20 @@ button { font: inherit; color: inherit; }
   max-height: calc(100vh - 108px);
 }
 
+.llv-app-boot {
+  display: grid;
+  gap: 6px;
+  padding: 28px;
+  border: 1px solid var(--llv-line);
+  border-radius: var(--llv-radius);
+  background: var(--llv-panel);
+  color: var(--llv-muted);
+  box-shadow: var(--llv-shadow);
+}
+
+.llv-app-boot b { color: var(--llv-text); font-size: 15px; }
+.llv-app-boot a { color: var(--llv-tone); }
+
 .llv-app-side-head {
   display: flex;
   align-items: baseline;
@@ -298,11 +312,20 @@ button { font: inherit; color: inherit; }
   width: fit-content;
   cursor: pointer;
   user-select: none;
+  position: relative;
 }
 
 .llv-app-card-switch .llv-app-switch { width: auto; gap: 0; }
 
 .llv-app-card-switch .llv-app-switch-text { display: none; }
+
+/* Карточка тоже <label>. Клик мимо тумблера (по тексту, отступам, полям)
+   иначе переключал бы настройку неожиданно: такой клик гасим на самой
+   карточке. Внутри тумблера click не preventDefault-им — там переключает
+   <label>. */
+.llv-app-card { cursor: default; }
+
+.llv-app-card .llv-app-card-switch { cursor: pointer; }
 
 .llv-app-switch-text:empty { display: none; }
 

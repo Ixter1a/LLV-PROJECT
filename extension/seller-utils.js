@@ -85,6 +85,18 @@
     return settings;
   }
 
+  // Настройки записаны другим окном (например, страницей LLV): принимаем их
+  // без обратной записи в storage. Если здесь есть незаписанные правки, они
+  // идут сверху: иначе запоздавший ответ storage откатил бы только что
+  // сохранённое значение и следующая правка затёрла бы его своим снимком.
+  function reload(value) {
+    var fresh = clean(value);
+    settings = queue.length ? Object.assign({}, fresh, settings) : fresh;
+    loaded = true;
+    emit(settings);
+    return settings;
+  }
+
   function storage() {
     return root.chrome && root.chrome.storage && root.chrome.storage.local;
   }
@@ -178,9 +190,10 @@
     local.__llvWatched = true;
     local.onChanged.addListener(function (changes, area) {
       if (area !== "local" || !changes[KEY]) return;
+      // Во время отложенной записи сюда приходят и наши же правки: заменять
+      // ими снимок нельзя, в нём уже есть более свежие значения (см. reload).
       if (writeTimer) return;
-      settings = clean(changes[KEY].newValue);
-      emit(settings);
+      reload(changes[KEY].newValue);
     });
   }
 
@@ -379,6 +392,7 @@
     defaults: defaults,
     clean: clean,
     current: current,
+    reload: reload,
     patch: patch,
     save: save,
     saveNow: saveNow,

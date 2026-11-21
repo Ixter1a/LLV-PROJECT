@@ -33,7 +33,7 @@
     <aside class="llv-app-side">
       <div class="llv-app-side-head">
         <span>Функции</span>
-        <small id="llv-app-counter"></small>
+        <small id="llv-app-counter">Загружаем…</small>
       </div>
       <div class="llv-app-list" id="llv-app-list"></div>
       <div class="llv-app-side-foot">
@@ -41,8 +41,17 @@
       </div>
     </aside>
 
-    <section class="llv-app-main" id="llv-app-main"></section>
+    <section class="llv-app-main" id="llv-app-main">
+      <div class="llv-app-boot" id="llv-app-boot">
+        <b>Загружаем панель…</b>
+        <span>Если надпись не исчезает, откройте <a href="#" id="llv-app-reload">страницу заново</a>.</span>
+      </div>
+    </section>
   </main>
+
+  <noscript>
+    <p style="padding: 24px">Для работы панели LLV нужен JavaScript.</p>
+  </noscript>
 
   <div class="llv-app-toast" id="llv-app-toast"></div>
 

@@ -31,7 +31,15 @@
     return root.LLV.current();
   }
 
+  // Единая точка записи настроек. Пока Chrome не присылает изменение,
+  // LLV.current() отдаёт старый снимок: вторая правка подряд взяла бы его и
+  // затёрла первую. Поэтому заодно обновляем снимок через LLV.reload().
   function save(changes) {
+    var next = Object.assign({}, S());
+    Object.keys(changes).forEach(function (key) { next[key] = changes[key]; });
+    // Сначала новое значение, потом storage: LLV.patch() сам сообщает
+    // подписчикам, и они должны увидеть уже свежий снимок.
+    if (root.LLV.reload) root.LLV.reload(next);
     return root.LLV.patch(changes);
   }
 
@@ -44,19 +52,16 @@
     return bucket ? bucket[tail] : undefined;
   }
 
-  function setValue(key, value) {
-    if (key.indexOf(".") === -1) {
-      var one = {};
-      one[key] = value;
-      save(one);
-      return;
-    }
-    var head = key.split(".")[0];
-    var tail = key.split(".")[1];
-    var bucket = Object.assign({}, S()[head] || {});
-    bucket[tail] = value;
+  function setField(key, value) {
     var changes = {};
-    changes[head] = bucket;
+    if (key.indexOf(".") === -1) {
+      changes[key] = value;
+    } else {
+      var head = key.split(".")[0];
+      var tail = key.split(".")[1];
+      changes[head] = Object.assign({}, S()[head] || {});
+      changes[head][tail] = value;
+    }
     save(changes);
   }
 
@@ -128,10 +133,13 @@
     });
   }
 
+  // Обработчика ошибки нет: если storage не ответил, колбэк всё равно придёт
+  // с lastError, а done вызывается здесь.
   function loadExtras(done) {
     var local = root.chrome && root.chrome.storage && root.chrome.storage.local;
     if (!local || !local.get) { done(); return; }
     local.get(["settings", "llvShiftGoal", "llvAccount"], function (data) {
+      if (root.chrome.runtime && root.chrome.runtime.lastError) { done(); return; }
       connection = (data && data.settings) || { url: "", key: "" };
       goal = Number(data && data.llvShiftGoal) || 0;
       account = String((data && data.llvAccount) || "");
@@ -179,23 +187,15 @@
   }
 
   function toggleRow(label, on, change, hint) {
-    var row = el("div", "llv-app-switch");
+    // Строка — <label>: в Chrome клик по треку или подписи переключает
+    // вложенный чекбокс сам, приходит одно событие change. Второй обработчик
+    // click здесь не нужен — он только переключал бы тумблер дважды.
+    var row = el("label", "llv-app-switch");
     var input = document.createElement("input");
     input.type = "checkbox";
     input.checked = !!on;
     row.addEventListener("change", function (event) {
-      if (event.target !== input) return;
-      event.__llvHandled = true;
-      change(input.checked);
-    });
-    // В jsdom клики по label не переключают вложенный чекбокс, а в Chrome
-    // это делает разметка. Чтобы поведение было одинаковым, клик по строке
-    // переключает input вручную.
-    row.addEventListener("click", function (event) {
-      if (event.target === input) return;
-      event.preventDefault();
-      input.checked = !input.checked;
-      if (!event.__llvHandled) change(input.checked);
+      if (event.target === input) change(input.checked);
     });
     row.appendChild(input);
     row.appendChild(el("span", "llv-app-switch-text", label));
@@ -212,7 +212,7 @@
   }
 
   function inputRow(spec) {
-    var wrap = el("label", "llv-app-field" + (spec.half ? " is-half" : ""));
+    var wrap = el("div", "llv-app-field" + (spec.half ? " is-half" : ""));
     wrap.appendChild(el("span", "", spec.label));
     var input;
     if (spec.kind === "area") input = document.createElement("textarea");
@@ -235,7 +235,7 @@
     if (spec.hint) input.placeholder = spec.hint;
     input.addEventListener(spec.kind === "select" ? "change" : "input", function () {
       var next = spec.parse ? spec.parse(input.value) : input.value;
-      setValue(spec.key, next);
+      setField(spec.key, next);
     });
     wrap.appendChild(input);
     return wrap;
@@ -637,7 +637,14 @@
       window.__LLV_LIVE_LOTS = live.lots;
       live.ready = true;
       var main = document.getElementById("llv-app-main");
-      if (main) paintSection(main);
+      // Перерисовка не должна портить шапку и список, если данные неполные.
+      if (main) {
+        try {
+          paintSection(main);
+        } catch (error) {
+          if (root.console && console.error) console.error("LLV: раздел", error);
+        }
+      }
     });
   }
 
@@ -946,7 +953,9 @@
         changes[card.key] = on;
         save(changes);
         refreshFunpay(changes);
-        node.classList.toggle("is-off", !on);
+        // Перерисовываем сразу: карточку заменяет render(), и старый чекбокс
+        // иначе остаётся на экране со знанием, что он выключен.
+        repaint();
       });
       switchBox.className = "llv-app-card-switch";
       switchBox.classList.remove("llv-app-switch");
@@ -954,6 +963,18 @@
       node.classList.toggle("is-off", !value);
     }
     node.appendChild(top);
+    if (hasSwitch && !widget) {
+      // meetSwitch: нажали по карточке, но не по тумблеру. Клик, который после
+      // этого дойдёт до <label>, пришёл «мимо» и переключать его не должен.
+      var meetSwitch = false;
+      node.addEventListener("pointerdown", function (event) {
+        meetSwitch = !event.target.closest(".llv-app-card-switch");
+      });
+      node.addEventListener("click", function (event) {
+        if (meetSwitch && !event.target.closest(".llv-app-card-switch")) event.preventDefault();
+        meetSwitch = false;
+      });
+    }
 
     if (widget) {
       var host = el("div", "llv-app-widget");
@@ -975,12 +996,10 @@
         changes[spec.key] = on;
         save(changes);
         refreshFunpay(changes);
-        // Дополнительные флаги карточки тоже должны влиять на её вид:
-        // «Тихие часы» включены — карточка не должна выглядеть выключенной.
-        if (card.key) {
-          var now = cardState(card);
-          node.classList.toggle("is-off", !(now && now.on));
-        }
+        // Перерисовываем целиком: у узла в `node` снимок настроек до правки,
+        // и следующая правка в этой же карточке затёрла бы только что
+        // сохранённую настройку.
+        repaint();
       }, spec.note));
     });
     if (card.note) node.appendChild(el("p", "llv-app-hint", card.note));
@@ -1134,6 +1153,9 @@
   }
 
   function render() {
+    if (!registry || !registry.sections) {
+      throw new Error("Список функций LLV не загрузился: проверьте, что ui-registry.js на месте");
+    }
     applyChrome();
     paintSide();
     paintSection(document.getElementById("llv-app-main"));
@@ -1156,7 +1178,37 @@
     });
   }
 
+  // Chrome не перерисовывает открытую страницу сам. Периодически смотрим в
+  // storage: настройки могли поменять из вкладки FunPay или из старого окна
+  // настроек — тогда забираем их (LLV.reload не пишет обратно), чтобы следующая
+  // правка не затёрла чужое значение своим снимком.
+  var pendingSync = false;
+  function resyncFromStorage() {
+    if (pendingSync || !root.LLV || !root.LLV.reload) return;
+    var local = root.chrome && root.chrome.storage && root.chrome.storage.local;
+    if (!local || !local.get) return;
+    pendingSync = true;
+    // Откладываем: синхронный ответ storage запустил бы перерисовку посреди
+    // обработчика клика, и следующий клик попал бы в удалённый узел.
+    setTimeout(function () {
+      local.get("llvSeller", function (data) {
+        pendingSync = false;
+        if (root.chrome.runtime && root.chrome.runtime.lastError) return;
+        if (!data || !data.llvSeller) return;
+        if (JSON.stringify(data.llvSeller) === JSON.stringify(S())) return;
+        root.LLV.reload(data.llvSeller);
+      });
+    }, 0);
+  }
+
   function start() {
+    var reload = document.getElementById("llv-app-reload");
+    if (reload) {
+      reload.addEventListener("click", function (event) {
+        event.preventDefault();
+        root.location.reload();
+      });
+    }
     var link = document.getElementById("llv-app-open");
     if (link) {
       link.addEventListener("click", function (event) {
@@ -1170,24 +1222,91 @@
         });
       });
     }
+    // Ошибка в одном шаге не должна оставлять страницу пустой: рисуем,
+    // что можем, а остальное дорисует следующая отрисовка.
+    function step(name, fn) {
+      try {
+        fn();
+      } catch (error) {
+        if (root.console && console.error) console.error("LLV: " + name, error);
+      }
+    }
     var icon = document.getElementById("llv-app-mark");
     if (icon) icon.src = contentUrl("icons/icon.png");
     root.LLV.watch();
+    // Каждое событие настроек — после нажатия пользователя. Рисуем синхронно,
+    // чтобы браузер визуально переключил чекбокс сразу; resyncFromStorage()
+    // сам откладывает работу, чтобы не попасть в этот же поток.
     root.LLV.on(function () {
-      paintStatus();
-      applyChrome();
-      repaint();
+      step("paintStatus", paintStatus);
+      step("applyChrome", applyChrome);
+      step("repaint", repaint);
+      resyncFromStorage();
     });
+    // Раз в секунду сверяемся со storage: вкладка FunPay или старое окно
+    // настроек могли записать новые значения.
+    setInterval(resyncFromStorage, 1000);
+    // Первая отрисовка — сразу, не дожидаясь вкладки FunPay и storage:
+    // иначе на медленном ответе страница выглядит пустой.
+    step("render", render);
     // Живые данные сначала: тогда первая отрисовка уже со статистикой,
     // а «Лоты на странице» не мигает надписью «вкладка не найдена».
     pullLive().then(function () {
       loadExtras(function () {
-        readTopbar();
-        root.LLV.load(function () { render(); });
+        step("readTopbar", readTopbar);
+        root.LLV.load(function () {
+          step("render", render);
+        });
+      });
+    }, function () {
+      // Вкладки FunPay нет или она не ответила — всё равно показываем настройки.
+      loadExtras(function () {
+        root.LLV.load(function () {
+          step("render", render);
+        });
       });
     });
     setInterval(readTopbar, 60000);
+    // Вкладка снова на экране — проверяем, не поменяли ли настройки извне.
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) resyncFromStorage();
+    });
   }
 
-  root.LLVApp = { start: start, refresh: render, actions: actions, live: live };
+  root.LLVApp = {
+    start: start,
+    // Перерисовка из моста: сбой не должен всплывать в content-скрипт.
+    refresh: function () {
+      try {
+        render();
+      } catch (error) {
+        if (root.console && console.error) console.error("LLV: перерисовка", error);
+      }
+    },
+    actions: actions,
+    live: live
+  };
+
+  // app.html подключает этот файл последним, поэтому запускаемся сразу.
+  // Если DOM ещё не готов, ждём его.
+  var booted = false;
+  function boot() {
+    if (booted) return;
+    booted = true;
+    try {
+      start();
+    } catch (error) {
+      if (root.console && console.error) console.error("LLV: запуск панели", error);
+      var main = document.getElementById("llv-app-main");
+      if (main && !main.querySelector(".llv-app-cards")) {
+        main.innerHTML = "";
+        var box = el("div", "llv-app-boot");
+        box.appendChild(el("b", "", "Панель не запустилась"));
+        box.appendChild(el("span", "", String((error && error.message) || error)));
+        main.appendChild(box);
+      }
+    }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
 })(typeof globalThis !== "undefined" ? globalThis : this);

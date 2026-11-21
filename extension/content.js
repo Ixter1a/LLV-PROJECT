@@ -334,9 +334,14 @@
     });
   }
 
-  if (window.LLVSeller) window.LLVSeller.attach(null);
-  if (window.LLVPage) window.LLVPage.start();
-  mount();
+  try {
+    if (window.LLVSeller) window.LLVSeller.attach(null);
+    if (window.LLVPage) window.LLVPage.start();
+    mount();
+  } catch (error) {
+    // Падение одного модуля не должно отключать мост со страницей LLV.
+    if (window.console) console.error("LLV: монтирование на FunPay", error);
+  }
   if (document.documentElement) {
     new MutationObserver(function () { mount(); }).observe(document.documentElement, { childList: true, subtree: true });
   }
@@ -379,7 +384,8 @@
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
     if (!message || message.type !== "openSettings") return;
     var url = chrome.runtime.getURL("app.html");
-    chrome.tabs.query({ url: url }, function (tabs) {
+    // «*» в конце: без него Chrome не находит открытую вкладку по полному адресу.
+    chrome.tabs.query({ url: url + "*" }, function (tabs) {
       var tab = tabs && tabs[0];
       if (tab) chrome.tabs.update(tab.id, { active: true });
       else chrome.tabs.create({ url: url });
