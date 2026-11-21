@@ -432,7 +432,159 @@ chrome.runtime.onMessageExternal.addListener(function (message, sender, sendResp
 
 chrome.runtime.onInstalled.addListener(function () {
   serialized(function () { return flush(); });
+  scheduleWork();
 });
 chrome.runtime.onStartup.addListener(function () {
   serialized(function () { return flush(); });
+  scheduleWork();
 });
+
+var WORK_ALARM = "llvWork";
+var WORK_PERIOD = 1;
+var BUSY_KEY = "llvBusy";
+var LAST_RAISE_KEY = "llvLastRaise";
+
+function scheduleWork() {
+  if (!chrome.alarms || !chrome.alarms.create) return;
+  chrome.alarms.get(WORK_ALARM, function (alarm) {
+    if (alarm) return;
+    chrome.alarms.create(WORK_ALARM, { periodInMinutes: WORK_PERIOD, delayInMinutes: WORK_PERIOD });
+  });
+}
+
+async function sellerSettings() {
+  var data = await storageGet("llvSeller");
+  return data.llvSeller || {};
+}
+
+async function sends(type, payload) {
+  var tabs = (await chrome.tabs.query({})).filter(function (tab) {
+    return tab.id && /^https:\/\/(www\.)?funpay\.com\//.test(tab.url || "");
+  });
+  if (!tabs.length) return null;
+  var answers = await Promise.all(tabs.map(function (tab) {
+    return chrome.tabs.sendMessage(tab.id, Object.assign({ type: type }, payload || {})).then(function (reply) {
+      return reply || null;
+    }, function () {
+      return null;
+    });
+  }));
+  return answers.filter(function (reply) { return reply && !reply.skipped; })[0] || null;
+}
+
+async function raiseFromTab(tabId) {
+  var reply = await chrome.scripting.executeScript({
+    target: { tabId: tabId },
+    func: function () {
+      var lots = self.LLVLots;
+      if (!lots) return { ok: false, error: "Скрипт расширения ещё не загрузился" };
+      return lots.raiseByRequest(document, fetch.bind(self), location);
+    }
+  });
+  var result = reply && reply[0] && reply[0].result;
+  return result || { ok: false, error: "Вкладка не ответила" };
+}
+
+async function activeTab() {
+  var tabs = (await chrome.tabs.query({})).filter(function (tab) {
+    return tab.id && /^https:\/\/(www\.)?funpay\.com\//.test(tab.url || "");
+  });
+  if (!tabs.length) return null;
+  var ranked = tabs.filter(function (tab) { return /\/lots\/\d+/.test(tab.url || ""); });
+  var pool = ranked.length ? ranked : tabs;
+  return pool.filter(function (tab) { return tab.active; })[0] || pool[0];
+}
+
+async function bgRaise() {
+  var tab = await activeTab();
+  if (!tab) return null;
+  return raiseFromTab(tab.id);
+}
+
+async function bgMessages() {
+  var settings = await sellerSettings();
+  if (!settings.welcomeOn && !settings.keywordsOn && !settings.thanksOn) return null;
+  return sends("llvMessages");
+}
+
+async function bgReviews() {
+  var settings = await sellerSettings();
+  if (!settings.reviewsAuto) return null;
+  return sends("llvReviews");
+}
+
+async function runWork() {
+  if (await chrome.storage.local.get(BUSY_KEY).then(function (data) { return data[BUSY_KEY]; })) return;
+  await storageSet({ [BUSY_KEY]: Date.now() });
+  try {
+    var settings = await sellerSettings();
+    var hour = new Date().getHours();
+    var quiet = settings.quietOn && inQuiet(hour, settings.quietFrom, settings.quietTo);
+    if (settings.autoRaise && !quiet) {
+      var last = (await storageGet(LAST_RAISE_KEY))[LAST_RAISE_KEY] || 0;
+      var gap = Math.max(5, Number(settings.raiseMinutes) || 30) * 60000;
+      if (Date.now() - last >= gap) {
+        var raised = await bgRaise();
+        if (raised && raised.ok) {
+          await storageSet({ [LAST_RAISE_KEY]: Date.now() });
+          if (settings.raiseNotice) sendNotice("Раздел поднят", "Автоподнятие лотов выполнено");
+        } else if (raised && raised.wait) {
+          // FunPay ещё не разрешает поднятие: откладываем, но не шумим каждую минуту.
+          await storageSet({ [LAST_RAISE_KEY]: Date.now() });
+        } else if (raised && raised.error && !raised.skipped && settings.raiseNotice) {
+          sendNotice("Поднятие не удалось", raised.error);
+        }
+      }
+    }
+    await bgMessages();
+    await bgReviews();
+  } finally {
+    await storageSet({ [BUSY_KEY]: 0 });
+  }
+}
+
+function inQuiet(hour, from, to) {
+  var start = ((Math.floor(Number(from)) % 24) + 24) % 24;
+  var end = ((Math.floor(Number(to)) % 24) + 24) % 24;
+  if (start === end || !isFinite(start) || !isFinite(end)) return false;
+  if (start < end) return hour >= start && hour < end;
+  return hour >= start || hour < end;
+}
+
+if (chrome.alarms && chrome.alarms.onAlarm) {
+  chrome.alarms.onAlarm.addListener(function (alarm) {
+    if (alarm && alarm.name === WORK_ALARM) runWork().catch(function () {});
+  });
+}
+
+chrome.storage.onChanged.addListener(function (changes, area) {
+  if (area !== "local" || !changes.llvSeller) return;
+  scheduleWork();
+  var before = (changes.llvSeller.oldValue || {}).autoRaise;
+  var after = (changes.llvSeller.newValue || {}).autoRaise;
+  if (after && !before) runWork().catch(function () {});
+});
+
+chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+  if (!message || message.type !== "llvOrder") return;
+  notifyOrder().then(function () { sendResponse({ ok: true }); });
+  return true;
+});
+
+async function notifyOrder() {
+  var settings = await sellerSettings();
+  if (settings.notifyOrder === false) return;
+  sendNotice("Новый заказ FunPay", "Проверьте страницу продаж");
+}
+
+function sendNotice(title, message) {
+  try {
+    chrome.notifications.create("llv-" + Date.now(), {
+      type: "basic",
+      iconUrl: chrome.runtime.getURL("icons/icon.png"),
+      title: title,
+      message: message || "",
+      priority: 2
+    });
+  } catch (error) { /* уведомления могут быть запрещены */ }
+}

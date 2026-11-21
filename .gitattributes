@@ -1,0 +1,9 @@
+# Хранить одинаковые переводы строк во всех системах.
+* text=auto eol=lf
+
+# Двоичные файлы не трогать.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

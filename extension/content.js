@@ -335,6 +335,7 @@
   }
 
   if (window.LLVSeller) window.LLVSeller.attach(null);
+  if (window.LLVPage) window.LLVPage.start();
   mount();
   if (document.documentElement) {
     new MutationObserver(function () { mount(); }).observe(document.documentElement, { childList: true, subtree: true });
@@ -386,5 +387,25 @@
     chrome.runtime.sendMessage({ type: "getState" }, function (next) {
       if (!chrome.runtime.lastError) applyState(next);
     });
+  });
+
+  chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+    if (!message) return;
+    if (message.type === "llvRaise" && window.LLVBackground) {
+      window.LLVBackground.raise().then(function (result) {
+        sendResponse(result || { ok: false, error: "Нет ответа" });
+      }, function (error) {
+        sendResponse({ ok: false, error: error.message || "Ошибка" });
+      });
+      return true;
+    }
+    if (message.type === "llvMessages" && window.LLVChat && window.LLVChat.tick) {
+      Promise.resolve(window.LLVChat.tick(true)).then(sendResponse, function () { sendResponse({ ok: false }); });
+      return true;
+    }
+    if (message.type === "llvReviews" && window.LLVReviewTick) {
+      window.LLVReviewTick().then(sendResponse, function () { sendResponse({ ok: false }); });
+      return true;
+    }
   });
 })();

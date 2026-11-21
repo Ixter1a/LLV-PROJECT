@@ -445,3 +445,245 @@ html.llv-show-promo [class*="offer-promo"] { display: inline-flex; visibility: v
   #llv-settings nav { border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.16); }
   #llv-settings .llv-set-pair { grid-template-columns: 1fr; }
 }
+
+/* ---------- Темы ---------- */
+:root {
+  --llv-bg: #f7f7f7;
+  --llv-panel: #ffffff;
+  --llv-panel-2: #f2f2f2;
+  --llv-text: #0b0b0b;
+  --llv-muted: #5a5a5a;
+  --llv-line: rgba(0, 0, 0, 0.16);
+  --llv-field: #ffffff;
+  --llv-accent: #111111;
+  --llv-bg-color: #f7f7f7;
+  --llv-wall: none;
+}
+
+html.llv-themed body { background-color: var(--llv-bg-color); }
+
+#llv-shift-root .llv-panel,
+#llv-profile-panel,
+#llv-settings {
+  --llv-panel: #000;
+  --llv-panel-2: #0d0d0d;
+  --llv-text: #fff;
+  --llv-muted: rgba(255, 255, 255, 0.62);
+  --llv-line: rgba(255, 255, 255, 0.16);
+  --llv-field: #000;
+  --llv-accent: #fff;
+}
+
+html.llv-theme-dark #llv-shift-root .llv-panel,
+html.llv-theme-dark #llv-settings,
+html.llv-theme-dark #llv-profile-panel { background: var(--llv-panel); border-color: var(--llv-line); color: var(--llv-text); }
+
+html.llv-theme-firewatch #llv-shift-root .llv-panel,
+html.llv-theme-firewatch #llv-settings,
+html.llv-theme-firewatch #llv-profile-panel { background: linear-gradient(180deg, #241a13, #1a1410); border-color: rgba(232, 114, 47, 0.35); color: #f6e5d3; }
+html.llv-theme-firewatch #llv-shift-root .llv-title,
+html.llv-theme-firewatch #llv-settings h2 { color: #f3a469; }
+
+html.llv-theme-redmoon #llv-shift-root .llv-panel,
+html.llv-theme-redmoon #llv-settings,
+html.llv-theme-redmoon #llv-profile-panel { background: linear-gradient(180deg, #1f0d12, #12070a); border-color: rgba(224, 54, 74, 0.38); color: #fbe9ec; }
+html.llv-theme-redmoon #llv-shift-root .llv-title,
+html.llv-theme-redmoon #llv-settings h2 { color: #ff7d8c; }
+
+html.llv-theme-midnight #llv-shift-root .llv-panel,
+html.llv-theme-midnight #llv-settings,
+html.llv-theme-midnight #llv-profile-panel { background: linear-gradient(180deg, #0e1428, #080b18); border-color: rgba(91, 140, 255, 0.32); color: #e6ecff; }
+html.llv-theme-midnight #llv-shift-root .llv-title,
+html.llv-theme-midnight #llv-settings h2 { color: #8fb0ff; }
+
+html.llv-theme-graphite #llv-settings,
+html.llv-theme-mint #llv-settings,
+html.llv-theme-mono #llv-settings { background: var(--llv-panel); }
+
+html.llv-has-video:not(.llv-themed) body::before,
+html.llv-has-video body { background-color: transparent; }
+
+#llv-wall-video {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  z-index: -2;
+  pointer-events: none;
+}
+
+html.llv-glass #llv-shift-root .llv-panel,
+html.llv-glass #llv-settings,
+html.llv-glass #llv-profile-panel,
+html.llv-glass .llv-stats {
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+  backdrop-filter: blur(18px) saturate(140%);
+  background: rgba(12, 14, 22, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
+}
+
+html.llv-wall-animated.llv-themed body { background-size: 140% 140%; animation: llv-drift 22s ease-in-out infinite alternate; }
+@keyframes llv-drift { from { background-position: 0% 0%; } to { background-position: 100% 100%; } }
+
+/* ---------- Панель на профиле, статистика, кнопки ---------- */
+#llv-profile-panel {
+  margin: 0 0 14px;
+  padding: 14px 16px 16px;
+  border: 1px solid var(--llv-line);
+  border-radius: 10px;
+  background: #000;
+  color: #fff;
+  font: 14px/1.4 "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+
+#llv-profile-panel * { box-sizing: border-box; }
+#llv-profile-panel .llv-head { display: flex; align-items: center; gap: 12px; }
+#llv-profile-panel .llv-title { font-size: 16px; font-weight: 600; }
+#llv-profile-panel .llv-profile-close { margin-left: auto; border: 0; background: none; color: inherit; font-size: 20px; cursor: pointer; }
+#llv-profile-panel .llv-search,
+#llv-profile-panel select {
+  width: 100%;
+  margin-top: 10px;
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 10px;
+  background: #000;
+  color: #fff;
+  font: inherit;
+}
+#llv-profile-panel .llv-profile-info { margin-top: 8px; color: rgba(255, 255, 255, 0.62); font-size: 13px; }
+#llv-profile-panel .llv-commands { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+#llv-profile-panel .llv-cmd,
+#llv-profile-panel .llv-btn {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 10px;
+  background: #141414;
+  color: #fff;
+  padding: 8px 12px;
+  font: inherit;
+  cursor: pointer;
+}
+#llv-profile-panel .llv-btn { background: #fff; color: #000; font-weight: 650; margin-top: 8px; }
+#llv-profile-panel .llv-work { margin-top: 10px; }
+
+.llv-stats {
+  margin: 14px 0;
+  padding: 14px 16px;
+  border: 1px solid var(--llv-line);
+  border-radius: 10px;
+  background: var(--llv-panel, #000);
+  color: var(--llv-text, #fff);
+  font: 14px/1.45 "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+}
+.llv-stats h3 { margin: 0 0 6px; font-size: 15px; }
+.llv-stats-line { margin: 0 0 8px; color: var(--llv-muted, rgba(255, 255, 255, 0.62)); font-size: 13px; }
+.llv-stats .llv-set-btn { margin-right: 8px; }
+.llv-chart { display: grid; gap: 4px; }
+.llv-bar { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.llv-bar span { display: block; height: 10px; border-radius: 4px; background: var(--llv-accent, #fff); opacity: 0.85; }
+
+.tc-item.llv-own { box-shadow: inset 3px 0 0 #3ce27a; }
+.tc-item.llv-dup { outline: 1px dashed #ffb340; outline-offset: -2px; }
+.tc-item.llv-filtered { display: none !important; }
+.llv-real { display: block; font-size: 11px; color: #5c5c5c; margin-top: 2px; }
+
+.llv-row-check { margin-right: 6px; vertical-align: middle; }
+.llv-lot-btn,
+.llv-clone {
+  margin-left: 6px;
+  padding: 3px 8px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.llv-copy-order,
+.llv-support {
+  margin: 8px 8px 0 0;
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background: #fff;
+  color: #000;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.llv-toast {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 10px;
+  background: #000;
+  color: #fff;
+  font: 13px/1.4 "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+
+.llv-blurred { filter: blur(6px); transition: filter 0.15s; }
+.llv-blurred:hover { filter: none; }
+html.llv-private .llv-private-text { filter: blur(5px); transition: filter 0.15s; }
+html.llv-private .llv-private-text:hover { filter: none; }
+.llv-flat-nick { color: inherit !important; text-shadow: none !important; font-weight: inherit !important; }
+
+.llv-quick-menu {
+  position: absolute;
+  z-index: 20;
+  display: grid;
+  gap: 4px;
+  padding: 6px;
+  border-radius: 10px;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+.llv-quick-menu button { border: 0; border-radius: 6px; background: #161616; color: #fff; padding: 6px 10px; text-align: left; cursor: pointer; }
+.llv-quick-menu button:hover { background: #262626; }
+
+.llv-preview,
+.llv-tools { display: grid; gap: 8px; margin-top: 12px; padding: 12px; border: 1px dashed rgba(0, 0, 0, 0.25); border-radius: 10px; }
+.llv-tools { border-style: solid; grid-auto-flow: column; justify-content: start; }
+
+/* ---------- Настройки: темы и фоны ---------- */
+#llv-settings .llv-theme-grid,
+#llv-settings .llv-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+#llv-settings .llv-theme-cell,
+#llv-settings .llv-wall-cell {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 12px;
+  background: #0d0d0d;
+  color: rgba(255, 255, 255, 0.8);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+#llv-settings .llv-theme-cell.is-on,
+#llv-settings .llv-wall-cell.is-on { border-color: #fff; box-shadow: 0 0 0 1px #fff inset; }
+#llv-settings .llv-theme-swatch { position: relative; display: block; height: 42px; border: 2px solid #fff; border-radius: 8px; }
+#llv-settings .llv-theme-swatch i { position: absolute; right: 6px; bottom: 6px; display: block; width: 12px; height: 12px; border-radius: 50%; }
+#llv-settings .llv-wall-preview { display: block; height: 46px; border-radius: 8px; background: #111; }
+#llv-settings .llv-set-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  font-size: 13px;
+}
+#llv-settings input[type="file"] { color: rgba(255, 255, 255, 0.72); font-size: 12px; }
+#llv-settings.is-standalone { background: #000; color: #fff; padding: 18px; }

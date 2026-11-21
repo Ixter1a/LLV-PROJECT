@@ -1,0 +1,10 @@
+# Служебное, не для git
+.DS_Store
+Thumbs.db
+desktop.ini
+node_modules/
+*.zip
+*.log
+
+# Временные файлы тестов
+__*.js

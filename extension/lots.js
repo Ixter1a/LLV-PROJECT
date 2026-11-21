@@ -14,7 +14,7 @@
   }
 
   function text(node) {
-    return ((node && (node.innerText || node.textContent)) || "").replace(/\s+/g, " ").trim();
+    return ((node && (node.innerText || node.textContent)) || "").replace(/[\u00a0\u202f]/g, " ").replace(/\s+/g, " ").trim();
   }
 
   function isOwnRow(row, userId) {
@@ -22,7 +22,7 @@
     var owner = row.getAttribute && row.getAttribute("data-user");
     if (owner && userId && String(owner) !== String(userId)) return false;
     if (owner && userId && String(owner) === String(userId)) return true;
-    var ownTable = row.closest && row.closest(".showcase-has-actions");
+    var ownTable = row.closest && row.closest(".showcase-has-actions, .tc-seller, .offer-edit-links");
     if (ownTable && row.getAttribute("data-offer")) return true;
     if (row.querySelector && row.querySelector("[data-action='delete'], [data-action='restore'], [data-action='deactivate'], [data-action='activate']")) {
       return true;
@@ -31,47 +31,69 @@
   }
 
   function lotId(row) {
+    if (!row) return "";
     var offer = row.getAttribute && row.getAttribute("data-offer");
     if (offer) return offer;
+    var id = row.getAttribute && row.getAttribute("data-id");
+    if (id) return id;
+    var link = row.querySelector && row.querySelector("a[href*='offerEdit'], a[href*='id=']");
+    if (link) {
+      var match = (link.getAttribute("href") || "").match(/[?&]id=([^&]+)/);
+      if (match) return decodeURIComponent(match[1]);
+    }
     var href = (row.getAttribute && row.getAttribute("href")) || "";
-    var match = href.match(/[?&]id=([^&]+)/);
-    return match ? decodeURIComponent(match[1]) : "";
+    var own = href.match(/[?&]id=([^&]+)/);
+    return own ? decodeURIComponent(own[1]) : "";
   }
 
   function nodeFrom(doc) {
     var path = (doc.location && doc.location.pathname) || "";
-    var match = path.match(/\/lots\/(\d+)/);
+    var match = path.match(/\/(?:lots|chips)\/(\d+)/);
     return match ? match[1] : "";
   }
 
   function editHref(row) {
+    if (!row) return "";
     var link = row.querySelector && row.querySelector("a[href*='offerEdit']");
     if (link) return link.getAttribute("href");
     if (row.matches && row.matches("a[href*='offerEdit']")) return row.getAttribute("href");
     return "";
   }
 
+  function priceText(row) {
+    var node = row.querySelector && row.querySelector(".tc-price");
+    var raw = text(node);
+    var match = raw.match(/([^\d\s]*)\s*(\d[\d\s]*(?:[.,]\d+)?)/);
+    if (!match) return { price: "", currency: "" };
+    return {
+      currency: (match[1] || "").trim(),
+      price: match[2].replace(/\s/g, "").replace(",", ".")
+    };
+  }
+
   function offerFrom(row, doc) {
-    var titleNode = row.querySelector(".tc-desc-text, .tc-title");
-    var priceNode = row.querySelector(".tc-price");
-    var priceMatch = text(priceNode).match(/(\d+(?:[.,]\d+)?)/);
+    var titleNode = row.querySelector && row.querySelector(".tc-desc-text, .tc-title, .offer-title");
+    var price = priceText(row);
     return {
       id: lotId(row),
       title: text(titleNode),
-      price: priceMatch ? priceMatch[1].replace(",", ".") : "",
+      price: price.price,
+      currency: price.currency,
       editHref: editHref(row),
-      nodeId: nodeFrom(doc)
+      nodeId: nodeFrom(doc),
+      row: row
     };
   }
 
   function collectLots(doc) {
     var session = readSession(doc);
-    var rows = Array.prototype.slice.call(doc.querySelectorAll("a.tc-item, .tc-item"));
+    var rows = Array.prototype.slice.call(doc.querySelectorAll("a.tc-item, a[data-offer], .offer-list a"));
     var seen = {};
     var lots = [];
     var foreign = [];
     rows.forEach(function (row) {
-      if (row.closest && row.closest("#llv-shift-root")) return;
+      if (row.closest && (row.closest("#llv-shift-root") || row.closest("#llv-profile-panel") || row.closest("#llv-settings"))) return;
+      if (!(row.matches && row.matches(".tc-item, a[data-offer]")) && !(row.querySelector && row.querySelector(".tc-price"))) return;
       var id = lotId(row);
       if (!id || seen[id]) return;
       seen[id] = true;
@@ -87,7 +109,7 @@
       try { return new URL(lot.editHref, loc.href).href; } catch (error) { return ""; }
     }
     if (!lot.id || !lot.nodeId) return "";
-    if (!/\/lots\/\d+/.test(loc.pathname || "")) return "";
+    if (!/\/(lots|chips)\/\d+/.test(loc.pathname || "")) return "";
     return loc.origin + "/lots/offerEdit?node=" + encodeURIComponent(lot.nodeId) + "&offer=" + encodeURIComponent(lot.id);
   }
 
@@ -189,18 +211,24 @@
   }
 
   function isLoginDoc(doc) {
-    if (/войти/i.test(doc.title || "")) return true;
+    if (/войти|sign in|log in/i.test(doc.title || "")) return true;
     var password = doc.querySelector("input[type='password']");
     var offerField = doc.querySelector("textarea, input[name*='summary'], input[name='price']");
     return !!(password && !offerField);
   }
 
   function isPurchaseForm(form) {
-    if (form.querySelector("[name='player'], [name='price_guard']")) return true;
+    if (form.querySelector("[name='player'], [name='price_guard'], [name='quantity']")) return true;
     var button = form.querySelector("button, input[type='submit']");
-    var label = button ? text(button) || button.value || "" : "";
-    return /^\s*купить\s*$/i.test(label);
+    var label = text(button) || (button && button.value) || "";
+    return /^\s*купить\s*$|^\s*buy\s*$/i.test(label);
   }
+
+  var FILE_RULES = [
+    { key: "image", re: /image|img|photo|picture|скрин|картинк/i },
+    { key: "flag", re: /flag/i },
+    { key: "position", re: /position|sort|order|поряд/i }
+  ];
 
   function readOfferForm(doc, pageUrl) {
     if (isLoginDoc(doc)) return { login: true };
@@ -215,9 +243,15 @@
     }
     if (!form) return null;
     var fields = [];
-    Array.prototype.slice.call(form.elements || form.querySelectorAll("input, textarea, select")).forEach(function (input) {
-      if (!input.name || input.type === "password" || input.type === "file") return;
+    var files = [];
+    Array.prototype.slice.call(form.elements || form.querySelectorAll("input, textarea, select, button")).forEach(function (input) {
+      if (!input.name || input.type === "password" || input.type === "submit" || input.type === "button") return;
+      if (input.type === "file") {
+        files.push({ name: input.name, rule: "" });
+        return;
+      }
       if ((input.type === "checkbox" || input.type === "radio") && !input.checked) return;
+      if (input.disabled) return;
       fields.push({ name: input.name, value: input.value || "" });
     });
     function find(re) {
@@ -226,15 +260,23 @@
       }
       return null;
     }
+    files.forEach(function (file) {
+      FILE_RULES.forEach(function (rule) {
+        if (!file.rule && rule.re.test(file.name)) file.rule = rule.key;
+      });
+    });
     var action = form.getAttribute("action") || pageUrl;
     try { action = new URL(action, pageUrl).href; } catch (error) { action = pageUrl; }
     return {
       action: action,
       method: (form.getAttribute("method") || "post").toUpperCase(),
       fields: fields,
+      files: files,
+      hasFile: files.length > 0,
       titleField: find(/summary|title/i),
       descField: find(/desc/i),
       priceField: find(/price/i),
+      currencyField: find(/currency/i),
       offerField: find(/offer_id|^offer$|^id$/i)
     };
   }
@@ -267,16 +309,16 @@
     var nodes = Array.prototype.slice.call(doc.querySelectorAll("a, button, input[type='submit'], input[type='button']"));
     for (var i = 0; i < nodes.length; i += 1) {
       var node = nodes[i];
-      if (node.closest && node.closest("#llv-shift-root")) continue;
+      if (node.closest && (node.closest("#llv-shift-root") || node.closest("#llv-profile-panel") || node.closest("#llv-settings"))) continue;
       var label = text(node) || node.value || "";
-      if (/купить/i.test(label)) continue;
-      if (/поднять/i.test(label)) return node;
+      if (/купить|buy/i.test(label)) continue;
+      if (/поднять|raise/i.test(label)) return node;
     }
     return doc.querySelector("form[action*='raise']");
   }
 
   async function loadForm(lot, loc, fetchImpl) {
-    var url = editUrl(lot, loc);
+    var url = lot.editHref && /^https?:/.test(lot.editHref) ? lot.editHref : editUrl(lot, loc);
     if (!url) return { ok: false, error: "На странице нет редактирования этого лота" };
     var response = await fetchImpl(url, { credentials: "include" });
     var html = await response.text();
@@ -284,7 +326,7 @@
     var form = readOfferForm(doc, url);
     if (form && form.login) return { ok: false, error: "Войдите в FunPay. Пароль не читается." };
     if (!form || !form.titleField) return { ok: false, error: "Форма лота не найдена" };
-    return { ok: true, form: form };
+    return { ok: true, form: form, url: url };
   }
 
   async function submitForm(form, fetchImpl) {
@@ -303,13 +345,13 @@
     for (var i = 0; i < lots.length; i += 1) {
       var lot = lots[i];
       try {
-        var result = await task(lot);
+        var result = await task(lot, i);
         results.push({
           id: lot.id,
           title: lot.title,
-          ok: !!result.ok,
-          skipped: !!result.skipped,
-          error: result.error || ""
+          ok: !!(result && result.ok),
+          skipped: !!(result && result.skipped),
+          error: (result && result.error) || ""
         });
       } catch (error) {
         results.push({ id: lot.id, title: lot.title, ok: false, skipped: false, error: error.message || "Ошибка" });
@@ -318,14 +360,23 @@
     return results;
   }
 
+  function mergeChanges(form, changes, fields) {
+    var next = changes || {};
+    if (next.title !== undefined && next.title !== "" && form.titleField) fields = setField(fields, form.titleField.name, next.title);
+    if (next.price !== undefined && next.price !== "" && form.priceField) fields = setField(fields, form.priceField.name, String(next.price));
+    if (next.currency !== undefined && next.currency !== "" && form.currencyField) fields = setField(fields, form.currencyField.name, String(next.currency));
+    if (next.description !== undefined && next.description !== "" && form.descField) fields = setField(fields, form.descField.name, next.description);
+    return fields;
+  }
+
   async function createFromTemplate(lot, loc, fetchImpl, changes) {
     var loaded = await loadForm(lot, loc, fetchImpl);
     if (!loaded.ok) return loaded;
-    var fields = withoutOfferId(loaded.form.fields);
-    var next = changes || {};
-    if (next.title && loaded.form.titleField) fields = setField(fields, loaded.form.titleField.name, next.title);
-    if (next.price && loaded.form.priceField) fields = setField(fields, loaded.form.priceField.name, String(next.price));
-    if (next.description && loaded.form.descField) fields = setField(fields, loaded.form.descField.name, next.description);
+    if (loaded.form.hasFile && !(lot.images && lot.images.length)) {
+      var fresh = lot.editHref && /^https?:/.test(lot.editHref) ? lot.editHref : editUrl(lot, loc);
+      return { ok: false, error: "У лота есть картинки. Откройте форму лота на FunPay и скопируйте его кнопкой «Клонировать лот»", retry: fresh };
+    }
+    var fields = mergeChanges(loaded.form, changes, withoutOfferId(loaded.form.fields));
     return submitForm({ action: loaded.form.action, method: loaded.form.method, fields: fields }, fetchImpl);
   }
 
@@ -336,7 +387,34 @@
     if (suffix && loaded.form.titleField) {
       fields = setField(fields, loaded.form.titleField.name, loaded.form.titleField.value + suffix);
     }
+    if (lot.images && lot.images.length && loaded.form.hasFile) {
+      try {
+        return await submitMultipart(loaded.form, fields, lot.images, fetchImpl);
+      } catch (error) {
+        return { ok: false, error: "Не удалось перенести картинки: " + (error.message || "ошибка формы") };
+      }
+    }
     return submitForm({ action: loaded.form.action, method: loaded.form.method, fields: fields }, fetchImpl);
+  }
+
+  async function submitMultipart(form, fields, images, fetchImpl) {
+    var data = new FormData();
+    fields.forEach(function (field) { data.append(field.name, field.value); });
+    var slots = (form.files || []).filter(function (file) { return file.rule === "image" || !file.rule; });
+    if (!slots.length) return submitForm({ action: form.action, method: form.method, fields: fields }, fetchImpl);
+    for (var i = 0; i < images.length && i < slots.length; i += 1) {
+      var image = images[i];
+      var blob = await fetchImpl(image.src, { credentials: "include" }).then(function (response) { return response.blob(); });
+      var name = decodeURIComponent((image.src.split("?")[0].split("/").pop() || "image") ) || "image";
+      data.append(slots[i].name, blob, name);
+    }
+    var response = await fetchImpl(form.action, {
+      method: "POST",
+      credentials: "include",
+      body: data
+    });
+    if (!response.ok) return { ok: false, error: "FunPay ответил " + response.status };
+    return { ok: true };
   }
 
   async function editLot(lot, loc, fetchImpl, changes) {
@@ -346,6 +424,9 @@
     if (changes.price !== undefined && changes.price !== "") {
       if (!loaded.form.priceField) return { ok: false, error: "В форме нет цены" };
       fields = setField(fields, loaded.form.priceField.name, changes.price);
+    }
+    if (changes.currency !== undefined && changes.currency !== "" && loaded.form.currencyField) {
+      fields = setField(fields, loaded.form.currencyField.name, changes.currency);
     }
     if (changes.description !== undefined && changes.description !== "") {
       if (!loaded.form.descField) return { ok: false, error: "В форме нет описания" };
@@ -358,10 +439,39 @@
     return submitForm({ action: loaded.form.action, method: loaded.form.method, fields: fields }, fetchImpl);
   }
 
+  async function readLot(lot, loc, fetchImpl) {
+    var loaded = await loadForm(lot, loc, fetchImpl);
+    if (!loaded.ok) return loaded;
+    return {
+      ok: true,
+      url: loaded.url,
+      form: {
+        title: loaded.form.titleField ? loaded.form.titleField.value : "",
+        description: loaded.form.descField ? loaded.form.descField.value : "",
+        price: loaded.form.priceField ? loaded.form.priceField.value : "",
+        currency: loaded.form.currencyField ? loaded.form.currencyField.value : "",
+        hasFile: loaded.form.hasFile,
+        action: loaded.form.action
+      }
+    };
+  }
+
+  function imagesOf(doc) {
+    var srcs = [];
+    doc.querySelectorAll("a[href]").forEach(function (link) {
+      var href = link.getAttribute("href") || "";
+      if (!/(jpg|jpeg|png|webp|gif)(\?|$)/i.test(href)) return;
+      if (srcs.indexOf(href) === -1) srcs.push(href);
+    });
+    return srcs.slice(0, 12).map(function (src) {
+      return { src: src.indexOf("http") === 0 ? src : (doc.location ? doc.location.origin + src : src) };
+    });
+  }
+
   function rowById(doc, id) {
     var safe = String(id || "").replace(/'/g, "");
     if (!safe) return null;
-    return doc.querySelector(".tc-item[data-offer='" + safe + "']");
+    return doc.querySelector(".tc-item[data-offer='" + safe + "'], a.tc-item[data-offer='" + safe + "'], [data-offer='" + safe + "']");
   }
 
   function clickRowAction(row, action) {
@@ -369,14 +479,14 @@
     var node = row.querySelector("[data-action='" + action + "']");
     if (!node) {
       var pattern = {
-        activate: /включ|актив/i,
-        deactivate: /выключ|деактив/i,
-        delete: /удал/i
+        activate: /включ|актив|enable/i,
+        deactivate: /выключ|деактив|disable/i,
+        delete: /удал|delete/i
       }[action];
       var nodes = row.querySelectorAll("a, button");
       for (var i = 0; i < nodes.length; i += 1) {
         var label = text(nodes[i]);
-        if (/купить/i.test(label)) continue;
+        if (/купить|buy/i.test(label)) continue;
         if (pattern && pattern.test(label)) {
           node = nodes[i];
           break;
@@ -417,7 +527,7 @@
   }
 
   function raiseTarget(doc, loc) {
-    var button = doc.querySelector(".js-lot-raise, .raise-box");
+    var button = doc.querySelector(".js-lot-raise, .raise-box, [data-action='raise']");
     var gameId = button && button.getAttribute("data-game");
     var nodeId = button && button.getAttribute("data-node");
     if (gameId && nodeId) return { gameId: gameId, nodeId: nodeId };
@@ -466,8 +576,23 @@
     var data = {};
     try { data = await response.json(); } catch (error) { data = {}; }
     if (!response.ok) return { ok: false, error: "FunPay ответил " + response.status, path: path };
-    if (data.error) return { ok: false, error: data.msg || "Не удалось поднять", path: path };
-    return { ok: true, modal: data.modal || "", message: data.msg || "", path: path };
+    var message = data.msg || "";
+    if (data.error) {
+      // «Подождите 24 минуты» — не сбой, а ещё не наступил интервал поднятия.
+      var wait = /подождите|подождить|wait/i.test(message);
+      if (wait) {
+        var minutes = (message.match(/(\d+)\s*(мин|min)/i) || [])[1];
+        return {
+          ok: false,
+          wait: true,
+          minutes: minutes ? Number(minutes) : 0,
+          error: message,
+          path: path
+        };
+      }
+      return { ok: false, error: message || "Не удалось поднять", path: path };
+    }
+    return { ok: true, modal: data.modal || "", message: message, path: path, wait: data.wait || 0 };
   }
 
   async function raiseByRequest(doc, fetchImpl, loc) {
@@ -503,14 +628,22 @@
     encodeForm: encodeForm,
     withoutOfferId: withoutOfferId,
     loadForm: loadForm,
+    submitForm: submitForm,
     cloneLot: cloneLot,
     createFromTemplate: createFromTemplate,
     editLot: editLot,
+    readLot: readLot,
+    imagesOf: imagesOf,
     eachLot: eachLot,
     raiseOnPage: raiseOnPage,
     raiseRequestPath: raiseRequestPath,
     raiseByRequest: raiseByRequest,
+    raiseTarget: raiseTarget,
+    raiseBody: raiseBody,
+    nodeIdsFromModal: nodeIdsFromModal,
+    pageLocale: pageLocale,
     rowById: rowById,
+    lotId: lotId,
     clickRowAction: clickRowAction
   };
 })(typeof globalThis !== "undefined" ? globalThis : this);
