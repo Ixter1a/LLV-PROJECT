@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LLV Смены FunPay",
-  "version": "2.4.3",
+  "version": "2.5.0",
   "description": "Панель продавца FunPay: автоподнятие, автоответы, лоты, статистика, темы и учёт смен.",
   "minimum_chrome_version": "109",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApRb8nrXtll1y4PFrZGv/u+lpNCPu0ZMURe8O3sl5ift7AjYREXJQPMthc98nNRJ3ZjPjgA+nKPvI0BOTx+D7DcWsBiGwz2UbGlogt0xmU3Bia6UM9HBsmO3PoHzs+JPyLP7OCNRYGwUx53rZz34XN0nnU7Rm0ycamWSTti/t0cFnA5xsQ1lFyyjqYaNGI3VM9VxgAkl0uJcaXlO/wy+YA30Dorb9bmExwzHXz5C3mnVqBn8v+0omRrhzz2vu+7qqOELBoVEl4sZbDjjxpMdPCF4Dpz7v+n1fs3ZkexQ+PdzGwQE3kx4yX/2Ri759iTjPiAdPRL8Rn/vMRLG/JfDnIQIDAQAB",
@@ -21,7 +21,7 @@
     }
   },
   "options_ui": {
-    "page": "popup.html",
+    "page": "app.html",
     "open_in_tab": true
   },
   "background": {
@@ -56,6 +56,7 @@
         "page-tools.js",
         "seller-tools.js",
         "settings-page.js",
+        "app-bridge.js",
         "content.js"
       ],
       "css": ["content.css"],

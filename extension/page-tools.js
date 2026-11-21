@@ -475,8 +475,51 @@
     return box;
   }
 
+  var EMOJI = "😀 😄 😊 🙂 😉 😍 🤩 😎 🤔 😴 😢 😡 👍 👌 🙏 👋 🔥 ⭐ ✅ ❌ ❤️ 🎉 💎 🚀 ⚡ 🎮 💰 📦 ⏳ 🕹️ 👑 ✨ 💯".split(" ");
+
+  function emojiPanel(settings) {
+    var area = document.querySelector("textarea[name='message'], .chat-form textarea");
+    if (!area) return;
+    var form = area.closest("form");
+    if (!form || form.querySelector(".llv-emoji")) return;
+    var button = document.createElement("button");
+    button.type = "button";
+    button.className = "llv-emoji-toggle";
+    button.textContent = "Эмодзи";
+    var pop = document.createElement("div");
+    pop.className = "llv-emoji-pop";
+    pop.hidden = true;
+    EMOJI.forEach(function (symbol) {
+      var item = document.createElement("button");
+      item.type = "button";
+      item.textContent = symbol;
+      item.addEventListener("mousedown", function (event) {
+        event.preventDefault();
+        area.value = (area.value || "") + symbol;
+        area.dispatchEvent(new Event("input", { bubbles: true }));
+        area.focus();
+      });
+      pop.appendChild(item);
+    });
+    button.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      pop.hidden = !pop.hidden;
+    });
+    document.addEventListener("click", function (event) {
+      if (!pop.hidden && !pop.contains(event.target) && event.target !== button) pop.hidden = true;
+    });
+    var box = document.createElement("div");
+    box.className = "llv-emoji";
+    if (settings && settings.emoji === false) box.hidden = true;
+    box.appendChild(button);
+    box.appendChild(pop);
+    form.appendChild(box);
+  }
+
   function quickMenu() {
     var settings = config();
+    emojiPanel(settings);
     var area = document.querySelector("textarea[name='message'], .chat-form textarea");
     if (!area || area.dataset.llvQuick) return;
     area.dataset.llvQuick = "1";

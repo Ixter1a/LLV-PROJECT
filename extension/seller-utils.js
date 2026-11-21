@@ -14,6 +14,7 @@
       quietTo: "8",
       highlight: false,
       promo: false,
+      showPromo: false,
       commission: "",
       realPrice: false,
       exactOn: true,
@@ -21,6 +22,7 @@
       costs: {},
       currencies: {},
       quick: [],
+      emoji: true,
       welcomeOn: false,
       welcome: "",
       welcomeTimeout: 24,
@@ -79,7 +81,8 @@
   }
 
   function current() {
-    return settings || defaults();
+    if (!settings) return clean(null);
+    return settings;
   }
 
   function storage() {
@@ -361,6 +364,7 @@
     }
     var name = theme.resolve(current());
     document.documentElement.classList.add("llv-themed");
+    document.documentElement.classList.toggle("llv-show-promo", !!current().showPromo);
     if (name && name !== "light" && name !== "mono") {
       document.documentElement.classList.add("llv-theme-" + name);
       document.documentElement.style.setProperty("--llv-accent", theme.accent(name));

@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>LLV · Панель продавца FunPay</title>
+  <link rel="stylesheet" href="app.css" />
+</head>
+<body>
+  <div id="llv-app-wall"></div>
+
+  <header class="llv-app-bar">
+    <a class="llv-app-brand" href="https://funpay.com/" id="llv-app-open">
+      <img id="llv-app-mark" src="icons/icon.png" alt="" width="26" height="26" />
+      <span>LLV</span>
+    </a>
+
+    <nav class="llv-app-nav">
+      <button type="button" class="llv-app-nav-link" data-href="https://funpay.com/orders/trade">Продажи</button>
+      <button type="button" class="llv-app-nav-link" data-href="https://funpay.com/chat/">Сообщения</button>
+      <button type="button" class="llv-app-nav-link" data-href="https://funpay.com/account/balance">Финансы</button>
+      <button type="button" class="llv-app-nav-link" data-href="https://funpay.com/users/">Профиль</button>
+    </nav>
+
+    <div class="llv-app-bar-right">
+      <span class="llv-app-tab" id="llv-app-tab">Проверяем FunPay…</span>
+      <span class="llv-app-balance" id="llv-app-balance" hidden></span>
+      <span class="llv-app-user" id="llv-app-user" hidden>FunPay</span>
+    </div>
+  </header>
+
+  <main class="llv-app-shell">
+    <aside class="llv-app-side">
+      <div class="llv-app-side-head">
+        <span>Функции</span>
+        <small id="llv-app-counter"></small>
+      </div>
+      <div class="llv-app-list" id="llv-app-list"></div>
+      <div class="llv-app-side-foot">
+        Все настройки хранятся только в этом браузере и применяются сразу.
+      </div>
+    </aside>
+
+    <section class="llv-app-main" id="llv-app-main"></section>
+  </main>
+
+  <div class="llv-app-toast" id="llv-app-toast"></div>
+
+  <script src="order-parser.js"></script>
+  <script src="seller-utils.js"></script>
+  <script src="themes.js"></script>
+  <script src="lots.js"></script>
+  <script src="sales.js"></script>
+  <script src="ui-registry.js"></script>
+  <script src="app-page.js"></script>
+</body>
+</html>

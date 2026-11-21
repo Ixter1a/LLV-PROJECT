@@ -377,8 +377,13 @@
   applyCardFlag();
   if (window.LLVSettings && location.hash === "#llv-settings") window.LLVSettings.open();
   chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
-    if (!message || message.type !== "openSettings" || !window.LLVSettings) return;
-    window.LLVSettings.open();
+    if (!message || message.type !== "openSettings") return;
+    var url = chrome.runtime.getURL("app.html");
+    chrome.tabs.query({ url: url }, function (tabs) {
+      var tab = tabs && tabs[0];
+      if (tab) chrome.tabs.update(tab.id, { active: true });
+      else chrome.tabs.create({ url: url });
+    });
     sendResponse({ ok: true });
   });
   chrome.storage.onChanged.addListener(function (changes) {
