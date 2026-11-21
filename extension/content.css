@@ -276,3 +276,136 @@ html.llv-dark header, html.llv-dark .navbar { background: #000; color: #fff; }
 html.llv-dark .tc-item { background: #1c1c1c; color: #f5f5f5; }
 html.llv-show-promo [class*="promo-lot"],
 html.llv-show-promo [class*="offer-promo"] { display: inline-flex; visibility: visible; }
+
+#llv-settings {
+  position: static;
+  z-index: auto;
+  display: block;
+  width: auto;
+  max-width: 100%;
+  margin: 0 0 16px;
+  color: #fff;
+  background: #000;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+#llv-settings * { box-sizing: border-box; }
+
+#llv-settings button,
+#llv-settings input,
+#llv-settings textarea,
+#llv-settings select { font: inherit; color: inherit; }
+
+#llv-settings .llv-set-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+#llv-settings .llv-set-head p { margin: 0; color: rgba(255, 255, 255, 0.72); }
+
+#llv-settings .llv-set-head .llv-set-btn { margin-left: auto; }
+
+#llv-settings .llv-set-mark {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+
+#llv-settings .llv-set-mark::before {
+  content: "";
+  width: 10px;
+  height: 16px;
+  background: #fff;
+  clip-path: polygon(62% 0, 100% 0, 46% 42%, 74% 42%, 12% 100%, 34% 52%, 4% 52%);
+}
+
+#llv-settings .llv-set-mark img { width: 22px; height: 22px; object-fit: contain; }
+
+#llv-settings .llv-set-brand { font-weight: 650; }
+
+#llv-settings .llv-set-body {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  min-height: 480px;
+}
+
+#llv-settings nav {
+  display: grid;
+  align-content: start;
+  gap: 2px;
+  padding: 8px;
+  border-right: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+#llv-settings nav button {
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.72);
+  border-radius: 8px;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+#llv-settings nav button.is-on { background: #fff; color: #000; }
+
+#llv-settings .llv-set-main { display: grid; align-content: start; justify-items: start; gap: 12px; padding: 16px 18px 24px; }
+#llv-settings .llv-set-row { display: grid; justify-items: start; gap: 4px; }
+
+#llv-settings h2 { margin: 0 0 4px; font-size: 18px; font-weight: 600; }
+
+#llv-settings .llv-set-note { margin: 0; color: rgba(255, 255, 255, 0.72); font-size: 13px; }
+
+#llv-settings .llv-set-toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+#llv-settings .llv-set-toggle.is-disabled { color: rgba(255, 255, 255, 0.45); }
+
+#llv-settings .llv-set-field { display: grid; gap: 6px; }
+#llv-settings .llv-set-field span { color: rgba(255, 255, 255, 0.72); font-size: 13px; }
+
+#llv-settings input,
+#llv-settings textarea,
+#llv-settings select {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 10px;
+  background: #000;
+  padding: 10px 12px;
+}
+
+#llv-settings textarea { min-height: 72px; resize: vertical; }
+
+#llv-settings .llv-set-btn {
+  justify-self: start;
+  border: 0;
+  border-radius: 10px;
+  background: #fff;
+  color: #000;
+  padding: 10px 14px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+#llv-settings .llv-set-btn.is-quiet { background: transparent; color: rgba(255, 255, 255, 0.72); font-weight: 500; }
+
+#llv-settings .llv-set-list { margin: 0; padding-left: 18px; }
+
+@media (max-width: 720px) {
+  #llv-settings .llv-set-body { grid-template-columns: 1fr; }
+  #llv-settings nav { border-right: 0; border-bottom: 1px solid rgba(255, 255, 255, 0.16); }
+}

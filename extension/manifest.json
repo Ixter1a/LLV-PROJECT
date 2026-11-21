@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "LLV Смены FunPay",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "description": "Панель команд на FunPay: смена, лоты, заказы и сообщения.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApRb8nrXtll1y4PFrZGv/u+lpNCPu0ZMURe8O3sl5ift7AjYREXJQPMthc98nNRJ3ZjPjgA+nKPvI0BOTx+D7DcWsBiGwz2UbGlogt0xmU3Bia6UM9HBsmO3PoHzs+JPyLP7OCNRYGwUx53rZz34XN0nnU7Rm0ycamWSTti/t0cFnA5xsQ1lFyyjqYaNGI3VM9VxgAkl0uJcaXlO/wy+YA30Dorb9bmExwzHXz5C3mnVqBn8v+0omRrhzz2vu+7qqOELBoVEl4sZbDjjxpMdPCF4Dpz7v+n1fs3ZkexQ+PdzGwQE3kx4yX/2Ri759iTjPiAdPRL8Rn/vMRLG/JfDnIQIDAQAB",
   "icons": {
@@ -39,7 +39,7 @@
   "content_scripts": [
     {
       "matches": ["https://funpay.com/*"],
-      "js": ["order-parser.js", "lots.js", "lots-ui.js", "seller-tools.js", "content.js"],
+      "js": ["order-parser.js", "lots.js", "lots-ui.js", "seller-tools.js", "settings-page.js", "content.js"],
       "css": ["content.css"],
       "run_at": "document_idle"
     }

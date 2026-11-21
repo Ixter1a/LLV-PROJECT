@@ -291,13 +291,10 @@
       menu.hidden = !menu.hidden;
     });
     root.querySelector("[data-act='hide']").addEventListener("click", function () {
-      root.classList.add("is-hidden");
-      root.querySelector(".llv-menu-pop").hidden = true;
-      root.querySelector(".llv-show").hidden = false;
+      writeCardShown(false);
     });
     root.querySelector(".llv-show").addEventListener("click", function () {
-      root.classList.remove("is-hidden");
-      root.querySelector(".llv-show").hidden = true;
+      writeCardShown(true);
     });
     nameInput.addEventListener("keydown", function (event) {
       if (event.key === "Enter") onClick();
@@ -346,7 +343,46 @@
     if (chrome.runtime.lastError) return;
     applyState(next);
   });
-  chrome.storage.onChanged.addListener(function () {
+  function writeCardShown(shown) {
+    if (root) {
+      root.classList.toggle("is-hidden", !shown);
+      var show = root.querySelector(".llv-show");
+      if (show) show.hidden = shown;
+      var menu = root.querySelector(".llv-menu-pop");
+      if (menu) menu.hidden = true;
+    }
+    var local = chrome.storage && chrome.storage.local;
+    if (!local || !local.get || !local.set) return;
+    local.get("llvSeller", function (data) {
+      var seller = Object.assign({}, (data && data.llvSeller) || {});
+      seller.showCard = shown;
+      local.set({ llvSeller: seller });
+    });
+  }
+
+  function applyCardFlag() {
+    if (!root) return;
+    var local = chrome.storage && chrome.storage.local;
+    if (!local || !local.get) return;
+    local.get("llvSeller", function (data) {
+      if (!root) return;
+      var hidden = !!(data && data.llvSeller && data.llvSeller.showCard === false);
+      root.classList.toggle("is-hidden", hidden);
+      var show = root.querySelector(".llv-show");
+      if (show) show.hidden = !hidden;
+    });
+  }
+
+  applyCardFlag();
+  if (window.LLVSettings && location.hash === "#llv-settings") window.LLVSettings.open();
+  chrome.runtime.onMessage.addListener(function (message, sender, sendResponse) {
+    if (!message || message.type !== "openSettings" || !window.LLVSettings) return;
+    window.LLVSettings.open();
+    sendResponse({ ok: true });
+  });
+  chrome.storage.onChanged.addListener(function (changes) {
+    readGoal();
+    applyCardFlag();
     chrome.runtime.sendMessage({ type: "getState" }, function (next) {
       if (!chrome.runtime.lastError) applyState(next);
     });

@@ -1,89 +1,10 @@
 :root { color-scheme: dark; }
 
-* { box-sizing: border-box; }
-
 body {
   margin: 0;
-  width: 360px;
+  width: 240px;
+  padding: 16px;
   background: #000;
   color: #fff;
-  font-family: "Segoe UI", ui-sans-serif, system-ui, sans-serif;
-}
-
-.card { padding: 28px 24px 32px; }
-
-.brand { display: flex; gap: 14px; align-items: center; margin-bottom: 28px; }
-
-.brand h1 { margin: 0; font-size: 20px; font-weight: 560; }
-
-.brand p { margin: 4px 0 0; color: rgba(255, 255, 255, 0.62); font-size: 13px; }
-
-.mark {
-  width: 40px;
-  height: 40px;
-  border-radius: 12px;
-  background: #000;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  position: relative;
-  display: grid;
-  place-items: center;
-  overflow: hidden;
-}
-
-.mark img { width: 72%; height: 72%; object-fit: contain; position: relative; z-index: 1; }
-
-.fallback {
-  position: absolute;
-  width: 12px;
-  height: 18px;
-  background: #fff;
-  opacity: 0;
-  clip-path: polygon(62% 0, 100% 0, 46% 42%, 74% 42%, 12% 100%, 34% 52%, 4% 52%);
-}
-
-.mark.use-fallback .fallback { opacity: 1; }
-
-label {
-  display: grid;
-  gap: 8px;
-  margin-bottom: 18px;
-  font-size: 13px;
-  color: rgba(255, 255, 255, 0.62);
-}
-
-input {
-  width: 100%;
-  border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
-  background: #000;
-  color: #fff;
-  padding: 12px;
-  font: inherit;
-}
-
-.actions { display: grid; gap: 8px; }
-
-button {
-  border: 0;
-  border-radius: 10px;
-  background: #fff;
-  color: #000;
-  padding: 12px;
-  font: inherit;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-button.quiet {
-  background: transparent;
-  color: rgba(255, 255, 255, 0.72);
-  font-weight: 500;
-}
-
-#status {
-  min-height: 2.8em;
-  margin: 18px 0 0;
-  font-size: 13px;
-  line-height: 1.45;
-  color: rgba(255, 255, 255, 0.78);
+  font: 13px/1.4 "Segoe UI", ui-sans-serif, system-ui, sans-serif;
 }

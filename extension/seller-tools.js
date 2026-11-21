@@ -253,7 +253,7 @@
       var priceInput = document.querySelector("input[name='price'], input[name*='price']");
       var priceForm = priceInput && priceInput.closest && priceInput.closest("form");
       if (priceForm && root.LLVLots && root.LLVLots.isPurchaseForm(priceForm)) priceInput = null;
-      if (priceInput && !(priceInput.closest && priceInput.closest("#llv-shift-root")) && !document.querySelector(".llv-exact")) {
+      if (settings.exactOn !== false && priceInput && !(priceInput.closest && priceInput.closest("#llv-shift-root")) && !document.querySelector(".llv-exact")) {
         var exact = document.createElement("div");
         exact.className = "llv-exact";
         exact.innerHTML = '<label>Для продавца <input class="llv-seller" inputmode="decimal" /></label><label>Для покупателя <input class="llv-buyer" inputmode="decimal" /></label>';
@@ -675,6 +675,20 @@
 
     if (booted) return;
     booted = true;
+
+    if (root.chrome && root.chrome.storage && root.chrome.storage.onChanged) {
+      root.chrome.storage.onChanged.addListener(function (changes, area) {
+        if (area !== "local" || !changes[KEY]) return;
+        settings = Object.assign(defaults(), changes[KEY].newValue || {});
+        settings.reviews = Object.assign(defaults().reviews, settings.reviews || {});
+        settings.costs = settings.costs || {};
+        settings.quick = settings.quick || [];
+        settings.keywords = settings.keywords || [];
+        armRaise();
+        paintPage();
+        watchKeywords();
+      });
+    }
 
     document.addEventListener("llv-raised", function () {
       if (settings.raiseNotice) toast("Раздел: поднято");
